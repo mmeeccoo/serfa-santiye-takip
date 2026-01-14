@@ -444,8 +444,12 @@
             
             APP.currentWorker = APP.workers[idx];
             
-            if (APP.currentWorker.password !== pass) {
-                alert('❌ Hatalı şifre!');
+            console.log('Girilen şifre:', pass);
+            console.log('Beklenen şifre:', APP.currentWorker.password);
+            console.log('Şifre tipi:', typeof APP.currentWorker.password, typeof pass);
+            
+            if (String(APP.currentWorker.password).trim() !== String(pass).trim()) {
+                alert('❌ Hatalı şifre!\nGirilen: ' + pass + '\nBeklenen: ' + APP.currentWorker.password);
                 return;
             }
             
