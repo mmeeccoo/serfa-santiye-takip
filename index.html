@@ -49,6 +49,7 @@
             cursor: pointer;
             color: white;
         }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-manager { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .btn-worker { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
         .btn-primary { background: #667eea; }
@@ -56,7 +57,7 @@
         .btn-danger { background: #e74c3c; }
         .btn-excel { background: #217346; }
         .btn-back { background: white; color: #667eea; border: 2px solid #667eea; }
-        .btn-refresh { background: #f39c12; margin-top: 10px; }
+        .btn-refresh { background: #f39c12; }
         .form-group { margin-bottom: 18px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
         .form-group input, .form-group select {
@@ -92,7 +93,7 @@
         .alert { padding: 14px; margin: 15px 0; border-radius: 10px; text-align: center; font-weight: 600; }
         .alert-danger { background: #f8d7da; color: #721c24; }
         .alert-success { background: #d4edda; color: #155724; }
-        .alert-warning { background: #fff3cd; color: #856404; }
+        .alert-info { background: #d1ecf1; color: #0c5460; }
         .location-badge { 
             display: inline-block; 
             padding: 8px 14px; 
@@ -102,13 +103,15 @@
             font-size: 13px; 
             margin: 10px 0; 
         }
-        .location-badge.checking { background: #fff3cd; color: #856404; }
         .status-card { padding: 40px 30px; border-radius: 14px; text-align: center; margin: 20px 0; color: white; }
         .status-ready { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
         .status-working { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
-        .photo-preview { margin-top: 15px; border-radius: 10px; overflow: hidden; }
+        .photo-preview { margin-top: 15px; border-radius: 10px; overflow: hidden; max-height: 200px; }
         .photo-preview img { width: 100%; height: auto; display: block; }
         h3 { margin: 25px 0 15px; color: #333; font-size: 18px; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -118,49 +121,67 @@
     </div>
 
     <script>
+        var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMG-YqtjVNkkRuMD_4UNhLkCdU03eNLTB31fjDI5rdYd_YeTRTbxMtmepf3TpSFTN4/exec';
+        
         var APP = {
-            workers: JSON.parse(localStorage.getItem('workers') || '[]'),
-            sites: JSON.parse(localStorage.getItem('sites') || '[]'),
-            records: JSON.parse(localStorage.getItem('records') || '[]'),
+            workers: [],
+            sites: [],
+            records: [],
             currentWorker: JSON.parse(localStorage.getItem('currentWorker') || 'null'),
             workStart: JSON.parse(localStorage.getItem('workStart') || 'null'),
             location: null,
-            locationStatus: 'checking',
             PASSWORD: '1234'
         };
 
         function init() {
-            forceGetLocation();
+            getLocation();
+            setInterval(getLocation, 30000);
             showHome();
         }
 
-        function forceGetLocation() {
-            APP.locationStatus = 'checking';
-            if (!navigator.geolocation) {
-                APP.locationStatus = 'not-supported';
-                APP.location = null;
-                return;
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) { APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                    function() { APP.location = null; },
+                    { enableHighAccuracy: true }
+                );
             }
-            
-            navigator.geolocation.getCurrentPosition(
-                function(pos) { 
-                    APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    APP.locationStatus = 'active';
-                    console.log('GPS OK:', APP.location);
-                    if (APP.currentWorker) showWorkerPanel();
-                },
-                function(err) { 
-                    APP.location = null;
-                    APP.locationStatus = 'denied';
-                    console.error('GPS ERROR:', err.message);
-                    if (APP.currentWorker) showWorkerPanel();
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
         }
 
         function render(html) {
             document.getElementById('app').innerHTML = html;
+        }
+
+        function showLoading() {
+            return '<div class="loading"><div class="spinner"></div><p>Yükleniyor...</p></div>';
+        }
+
+        async function loadData(sheet) {
+            try {
+                var res = await fetch(SCRIPT_URL + '?sheet=' + sheet);
+                var data = await res.json();
+                return data.data || [];
+            } catch (e) {
+                console.error('Yükleme hatası:', e);
+                return [];
+            }
+        }
+
+        async function saveData(sheet, values) {
+            try {
+                var res = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ sheet: sheet, values: values })
+                });
+                var result = await res.json();
+                return result.success;
+            } catch (e) {
+                console.error('Kayıt hatası:', e);
+                alert('⚠️ Veri kaydedilemedi. İnternet bağlantınızı kontrol edin.');
+                return false;
+            }
         }
 
         function showHome() {
@@ -191,11 +212,49 @@
             if (document.getElementById('pass').value === APP.PASSWORD) {
                 showManagerPanel('add');
             } else {
-                alert('Hatalı şifre!');
+                alert('❌ Hatalı şifre!');
             }
         }
 
-        function showManagerPanel(tab) {
+        async function showManagerPanel(tab) {
+            render('<div class="header"><h1>👔 Yönetici Paneli</h1></div><div class="content">' + showLoading() + '</div>');
+            
+            var workersData = await loadData('workers');
+            var sitesData = await loadData('sites');
+            var recordsData = await loadData('records');
+            
+            APP.workers = [];
+            APP.sites = [];
+            APP.records = [];
+            
+            for (var i = 1; i < workersData.length; i++) {
+                if (workersData[i][0]) {
+                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1], wage: workersData[i][2] });
+                }
+            }
+            
+            for (var i = 1; i < sitesData.length; i++) {
+                if (sitesData[i][0]) {
+                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1], addr: sitesData[i][2] });
+                }
+            }
+            
+            for (var i = 1; i < recordsData.length; i++) {
+                if (recordsData[i][0]) {
+                    APP.records.push({
+                        id: recordsData[i][0],
+                        wid: recordsData[i][1],
+                        wname: recordsData[i][2],
+                        sid: recordsData[i][3],
+                        sname: recordsData[i][4],
+                        date: recordsData[i][5],
+                        hours: recordsData[i][6],
+                        cost: recordsData[i][7],
+                        photo: recordsData[i][8]
+                    });
+                }
+            }
+            
             var html = '<div class="header"><h1>👔 Yönetici Paneli</h1></div>';
             html += '<div class="tabs">';
             html += '<button class="tab ' + (tab === 'add' ? 'active' : '') + '" onclick="showManagerPanel(\'add\')">➕ Ekle</button>';
@@ -215,27 +274,34 @@
                 html += '<button class="btn btn-primary" onclick="addSite()">Ekle</button>';
             } else if (tab === 'list') {
                 html += '<h3>İşçiler (' + APP.workers.length + ')</h3>';
+                if (APP.workers.length === 0) {
+                    html += '<div class="alert alert-info">Henüz işçi eklenmemiş</div>';
+                }
                 for (var i = 0; i < APP.workers.length; i++) {
                     html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün</small></div>';
                 }
                 html += '<h3>Şantiyeler (' + APP.sites.length + ')</h3>';
+                if (APP.sites.length === 0) {
+                    html += '<div class="alert alert-info">Henüz şantiye eklenmemiş</div>';
+                }
                 for (var i = 0; i < APP.sites.length; i++) {
                     html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small></div>';
                 }
                 html += '<h3>Kayıtlar (' + APP.records.length + ')</h3>';
+                if (APP.records.length === 0) {
+                    html += '<div class="alert alert-info">Henüz kayıt oluşturulmamış</div>';
+                }
                 for (var i = APP.records.length - 1; i >= 0; i--) {
                     var r = APP.records[i];
-                    html += '<div class="card"><b>' + r.wname + ' - ' + r.cost + '₺</b><br><small>' + r.sname + ' • ' + r.date + ' • ' + r.hours + ' saat</small>';
-                    if (r.photo) html += '<div class="photo-preview"><img src="' + r.photo + '"></div>';
-                    html += '</div>';
+                    html += '<div class="card"><b>' + r.wname + ' - ' + r.cost + '₺</b><br><small>' + r.sname + ' • ' + r.date + ' • ' + r.hours + ' saat</small></div>';
                 }
             } else if (tab === 'report') {
                 var totalC = 0, totalH = 0;
                 for (var i = 0; i < APP.records.length; i++) {
-                    totalC += parseFloat(APP.records[i].cost);
-                    totalH += parseFloat(APP.records[i].hours);
+                    totalC += parseFloat(APP.records[i].cost || 0);
+                    totalH += parseFloat(APP.records[i].hours || 0);
                 }
-                html += '<button class="btn btn-excel" onclick="exportExcel()">📊 Excel\'e Dökümle</button>';
+                html += '<button class="btn btn-excel" onclick="window.open(\'https://docs.google.com/spreadsheets/d/1S9FR9s1-5pkfhiThJelbwy0MDsA08K0qVcBvjkW3qGo\', \'_blank\')">📊 Google Sheets\'te Aç</button>';
                 html += '<div class="stats">';
                 html += '<div class="stat-box"><div class="stat-value">' + totalH.toFixed(1) + '</div><div class="stat-label">TOPLAM SAAT</div></div>';
                 html += '<div class="stat-box"><div class="stat-value">' + totalC.toFixed(0) + '₺</div><div class="stat-label">TOPLAM MALİYET</div></div>';
@@ -245,41 +311,51 @@
             render(html);
         }
 
-        function addWorker() {
+        async function addWorker() {
             var n = document.getElementById('wn').value.trim();
             var w = document.getElementById('ww').value.trim();
-            if (!n || !w) { alert('Eksik bilgi!'); return; }
-            APP.workers.push({ id: Date.now(), name: n, wage: w });
-            localStorage.setItem('workers', JSON.stringify(APP.workers));
-            alert('✅ Eklendi!');
-            showManagerPanel('add');
+            if (!n || !w) { alert('❌ Eksik bilgi!'); return; }
+            
+            var id = Date.now().toString();
+            var success = await saveData('workers', [[id, n, w]]);
+            
+            if (success) {
+                alert('✅ İşçi eklendi!');
+                showManagerPanel('add');
+            }
         }
 
-        function addSite() {
+        async function addSite() {
             var n = document.getElementById('sn').value.trim();
             var a = document.getElementById('sa').value.trim();
-            if (!n || !a) { alert('Eksik bilgi!'); return; }
-            APP.sites.push({ id: Date.now(), name: n, addr: a });
-            localStorage.setItem('sites', JSON.stringify(APP.sites));
-            alert('✅ Eklendi!');
-            showManagerPanel('add');
-        }
-
-        function exportExcel() {
-            var csv = 'İşçi,Şantiye,Tarih,Saat,Maliyet\n';
-            for (var i = 0; i < APP.records.length; i++) {
-                var r = APP.records[i];
-                csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.hours + ',' + r.cost + '\n';
+            if (!n || !a) { alert('❌ Eksik bilgi!'); return; }
+            
+            var id = Date.now().toString();
+            var success = await saveData('sites', [[id, n, a]]);
+            
+            if (success) {
+                alert('✅ Şantiye eklendi!');
+                showManagerPanel('add');
             }
-            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            var link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'serfa-rapor.csv';
-            link.click();
         }
 
-        function showWorkerLogin() {
-            if (APP.workers.length === 0) { alert('Henüz işçi yok!'); showHome(); return; }
+        async function showWorkerLogin() {
+            render('<div class="header worker"><h1>👷 İşçi Girişi</h1></div><div class="content">' + showLoading() + '</div>');
+            
+            var workersData = await loadData('workers');
+            APP.workers = [];
+            for (var i = 1; i < workersData.length; i++) {
+                if (workersData[i][0]) {
+                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1], wage: workersData[i][2] });
+                }
+            }
+            
+            if (APP.workers.length === 0) { 
+                alert('⚠️ Henüz işçi kaydı yok!'); 
+                showHome(); 
+                return; 
+            }
+            
             var html = '<div class="header worker"><h1>👷 İşçi Girişi</h1></div>';
             html += '<div class="content">';
             html += '<button class="btn btn-back" onclick="showHome()">← Geri</button>';
@@ -297,8 +373,8 @@
         }
 
         function loginWorker() {
-            var id = parseInt(document.getElementById('ws').value);
-            if (!id) { alert('İşçi seçin!'); return; }
+            var id = document.getElementById('ws').value;
+            if (!id) { alert('❌ İşçi seçin!'); return; }
             for (var i = 0; i < APP.workers.length; i++) {
                 if (APP.workers[i].id === id) {
                     APP.currentWorker = APP.workers[i];
@@ -306,11 +382,39 @@
                 }
             }
             localStorage.setItem('currentWorker', JSON.stringify(APP.currentWorker));
-            forceGetLocation();
-            setTimeout(showWorkerPanel, 500);
+            showWorkerPanel();
         }
 
-        function showWorkerPanel() {
+        async function showWorkerPanel() {
+            render('<div class="header worker"><h1>👷 ' + APP.currentWorker.name + '</h1></div><div class="content">' + showLoading() + '</div>');
+            
+            var recordsData = await loadData('records');
+            var sitesData = await loadData('sites');
+            
+            APP.records = [];
+            APP.sites = [];
+            
+            for (var i = 1; i < recordsData.length; i++) {
+                if (recordsData[i][0]) {
+                    APP.records.push({
+                        id: recordsData[i][0],
+                        wid: recordsData[i][1],
+                        wname: recordsData[i][2],
+                        sid: recordsData[i][3],
+                        sname: recordsData[i][4],
+                        date: recordsData[i][5],
+                        hours: recordsData[i][6],
+                        cost: recordsData[i][7]
+                    });
+                }
+            }
+            
+            for (var i = 1; i < sitesData.length; i++) {
+                if (sitesData[i][0]) {
+                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1], addr: sitesData[i][2] });
+                }
+            }
+            
             var myRecs = [];
             for (var i = 0; i < APP.records.length; i++) {
                 if (APP.records[i].wid === APP.currentWorker.id) {
@@ -323,13 +427,11 @@
             html += '<button class="btn btn-back" onclick="logoutWorker()">🚪 Çıkış</button>';
 
             if (!APP.workStart) {
-                if (APP.locationStatus === 'checking') {
-                    html += '<div class="location-badge checking">⏳ GPS Kontrol Ediliyor...</div>';
-                } else if (APP.locationStatus === 'denied' || !APP.location) {
-                    html += '<div class="alert alert-danger">⚠️ GPS KAPALI! Lütfen ayarlardan konum iznini verin.</div>';
-                    html += '<button class="btn btn-refresh" onclick="forceGetLocation(); setTimeout(showWorkerPanel, 500);">🔄 GPS\'i Yeniden Dene</button>';
+                if (!APP.location) {
+                    html += '<div class="alert alert-danger">⚠️ GPS KAPALI!</div>';
+                    html += '<button class="btn btn-refresh" onclick="getLocation(); setTimeout(showWorkerPanel, 500);">🔄 GPS Yenile</button>';
                 } else {
-                    html += '<div class="location-badge">✅ GPS Aktif: ' + APP.location.lat.toFixed(4) + ', ' + APP.location.lng.toFixed(4) + '</div>';
+                    html += '<div class="location-badge">✅ GPS Aktif</div>';
                 }
                 
                 html += '<div class="status-card status-ready"><div style="font-size: 60px; margin-bottom: 15px;">🟢</div><h2>Hazır</h2><p>Çalışmaya başlamak için şantiye seçin</p></div>';
@@ -340,11 +442,12 @@
                 html += '</select></div>';
                 html += '<button class="btn btn-success" onclick="startWork()" ' + (!APP.location ? 'disabled' : '') + '>🚀 Çalışmaya Başla</button>';
                 html += '<h3>Yüklediğim Kayıtlar (' + myRecs.length + ')</h3>';
+                if (myRecs.length === 0) {
+                    html += '<div class="alert alert-info">Henüz kayıt yok</div>';
+                }
                 for (var i = myRecs.length - 1; i >= 0; i--) {
                     var r = myRecs[i];
-                    html += '<div class="card"><b>' + r.sname + '</b><br><small>' + r.date + ' • ' + r.hours + ' saat</small>';
-                    if (r.photo) html += '<div class="photo-preview"><img src="' + r.photo + '"></div>';
-                    html += '</div>';
+                    html += '<div class="card"><b>' + r.sname + '</b><br><small>' + r.date + ' • ' + r.hours + ' saat</small></div>';
                 }
             } else {
                 html += '<div class="alert alert-success">⚡ Çalışma devam ediyor...</div>';
@@ -357,14 +460,9 @@
         }
 
         function startWork() {
-            if (!APP.location) { 
-                alert('❌ GPS aktif değil! Lütfen GPS iznini verin ve tekrar deneyin.'); 
-                forceGetLocation();
-                setTimeout(showWorkerPanel, 500);
-                return; 
-            }
-            var sid = parseInt(document.getElementById('wss').value);
-            if (!sid) { alert('❌ Lütfen şantiye seçin!'); return; }
+            if (!APP.location) { alert('❌ GPS aktif değil!'); return; }
+            var sid = document.getElementById('wss').value;
+            if (!sid) { alert('❌ Şantiye seçin!'); return; }
             var site = null;
             for (var i = 0; i < APP.sites.length; i++) {
                 if (APP.sites[i].id === sid) { site = APP.sites[i]; break; }
@@ -374,48 +472,46 @@
                 wname: APP.currentWorker.name, 
                 sid: sid, 
                 sname: site.name, 
-                time: Date.now(),
-                startLoc: { lat: APP.location.lat, lng: APP.location.lng }
+                time: Date.now()
             };
             localStorage.setItem('workStart', JSON.stringify(APP.workStart));
             alert('✅ Çalışma başladı!');
             showWorkerPanel();
         }
 
-        function endWork() {
-            forceGetLocation();
-            setTimeout(function() {
-                if (!APP.location) { 
-                    alert('⚠️ GPS sinyali alınamıyor! Lütfen GPS\'i açın ve tekrar deneyin.'); 
-                    return; 
-                }
-                var pf = document.getElementById('wp').files[0];
-                if (!pf) { alert('❌ Lütfen çalışma fotoğrafı yükleyin!'); return; }
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    var h = ((Date.now() - APP.workStart.time) / 3600000).toFixed(2);
-                    var c = ((parseFloat(APP.currentWorker.wage) / 8) * parseFloat(h)).toFixed(2);
-                    APP.records.push({
-                        id: Date.now(),
-                        wid: APP.workStart.wid,
-                        wname: APP.workStart.wname,
-                        sid: APP.workStart.sid,
-                        sname: APP.workStart.sname,
-                        date: new Date().toISOString().split('T')[0],
-                        hours: h,
-                        cost: c,
-                        photo: e.target.result,
-                        startLoc: APP.workStart.startLoc,
-                        endLoc: { lat: APP.location.lat, lng: APP.location.lng }
-                    });
-                    localStorage.setItem('records', JSON.stringify(APP.records));
+        async function endWork() {
+            if (!APP.location) { alert('⚠️ GPS yok!'); return; }
+            var pf = document.getElementById('wp').files[0];
+            if (!pf) { alert('❌ Fotoğraf gerekli!'); return; }
+            
+            var reader = new FileReader();
+            reader.onload = async function(e) {
+                var h = ((Date.now() - APP.workStart.time) / 3600000).toFixed(2);
+                var c = ((parseFloat(APP.currentWorker.wage) / 8) * parseFloat(h)).toFixed(2);
+                var id = Date.now().toString();
+                var date = new Date().toISOString().split('T')[0];
+                var photoData = 'PHOTO_' + id;
+                
+                var success = await saveData('records', [[
+                    id,
+                    APP.workStart.wid,
+                    APP.workStart.wname,
+                    APP.workStart.sid,
+                    APP.workStart.sname,
+                    date,
+                    h,
+                    c,
+                    photoData
+                ]]);
+                
+                if (success) {
                     APP.workStart = null;
                     localStorage.removeItem('workStart');
                     alert('✅ Tamamlandı! ' + h + ' saat kaydedildi.');
                     showWorkerPanel();
-                };
-                reader.readAsDataURL(pf);
-            }, 1000);
+                }
+            };
+            reader.readAsDataURL(pf);
         }
 
         function logoutWorker() {
