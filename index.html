@@ -106,8 +106,6 @@
         .status-card { padding: 40px 30px; border-radius: 14px; text-align: center; margin: 20px 0; color: white; }
         .status-ready { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
         .status-working { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
-        .photo-preview { margin-top: 15px; border-radius: 10px; overflow: hidden; max-height: 200px; }
-        .photo-preview img { width: 100%; height: auto; display: block; }
         h3 { margin: 25px 0 15px; color: #333; font-size: 18px; }
         .loading { text-align: center; padding: 40px; color: #666; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
@@ -142,8 +140,14 @@
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    function(pos) { APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
-                    function() { APP.location = null; },
+                    function(pos) { 
+                        APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        console.log('GPS OK:', APP.location);
+                    },
+                    function(err) { 
+                        APP.location = null;
+                        console.log('GPS ERROR:', err);
+                    },
                     { enableHighAccuracy: true }
                 );
             }
@@ -159,27 +163,32 @@
 
         async function loadData(sheet) {
             try {
+                console.log('Yükleniyor:', sheet);
                 var res = await fetch(SCRIPT_URL + '?sheet=' + sheet);
                 var data = await res.json();
+                console.log('Yüklendi:', sheet, data);
                 return data.data || [];
             } catch (e) {
-                console.error('Yükleme hatası:', e);
+                console.error('Yükleme hatası:', sheet, e);
+                alert('⚠️ Veri yüklenemedi: ' + sheet);
                 return [];
             }
         }
 
         async function saveData(sheet, values) {
             try {
+                console.log('Kaydediliyor:', sheet, values);
                 var res = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ sheet: sheet, values: values })
                 });
                 var result = await res.json();
+                console.log('Kaydedildi:', result);
                 return result.success;
             } catch (e) {
                 console.error('Kayıt hatası:', e);
-                alert('⚠️ Veri kaydedilemedi. İnternet bağlantınızı kontrol edin.');
+                alert('⚠️ Veri kaydedilemedi!');
                 return false;
             }
         }
@@ -228,29 +237,28 @@
             APP.records = [];
             
             for (var i = 1; i < workersData.length; i++) {
-                if (workersData[i][0]) {
-                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1], wage: workersData[i][2] });
+                if (workersData[i] && workersData[i][0]) {
+                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1] || '', wage: workersData[i][2] || '' });
                 }
             }
             
             for (var i = 1; i < sitesData.length; i++) {
-                if (sitesData[i][0]) {
-                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1], addr: sitesData[i][2] });
+                if (sitesData[i] && sitesData[i][0]) {
+                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1] || '', addr: sitesData[i][2] || '' });
                 }
             }
             
             for (var i = 1; i < recordsData.length; i++) {
-                if (recordsData[i][0]) {
+                if (recordsData[i] && recordsData[i][0]) {
                     APP.records.push({
                         id: recordsData[i][0],
-                        wid: recordsData[i][1],
-                        wname: recordsData[i][2],
-                        sid: recordsData[i][3],
-                        sname: recordsData[i][4],
-                        date: recordsData[i][5],
-                        hours: recordsData[i][6],
-                        cost: recordsData[i][7],
-                        photo: recordsData[i][8]
+                        wid: recordsData[i][1] || '',
+                        wname: recordsData[i][2] || '',
+                        sid: recordsData[i][3] || '',
+                        sname: recordsData[i][4] || '',
+                        date: recordsData[i][5] || '',
+                        hours: recordsData[i][6] || '',
+                        cost: recordsData[i][7] || ''
                     });
                 }
             }
@@ -274,23 +282,17 @@
                 html += '<button class="btn btn-primary" onclick="addSite()">Ekle</button>';
             } else if (tab === 'list') {
                 html += '<h3>İşçiler (' + APP.workers.length + ')</h3>';
-                if (APP.workers.length === 0) {
-                    html += '<div class="alert alert-info">Henüz işçi eklenmemiş</div>';
-                }
+                if (APP.workers.length === 0) html += '<div class="alert alert-info">Henüz işçi eklenmemiş</div>';
                 for (var i = 0; i < APP.workers.length; i++) {
                     html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün</small></div>';
                 }
                 html += '<h3>Şantiyeler (' + APP.sites.length + ')</h3>';
-                if (APP.sites.length === 0) {
-                    html += '<div class="alert alert-info">Henüz şantiye eklenmemiş</div>';
-                }
+                if (APP.sites.length === 0) html += '<div class="alert alert-info">Henüz şantiye eklenmemiş</div>';
                 for (var i = 0; i < APP.sites.length; i++) {
                     html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small></div>';
                 }
                 html += '<h3>Kayıtlar (' + APP.records.length + ')</h3>';
-                if (APP.records.length === 0) {
-                    html += '<div class="alert alert-info">Henüz kayıt oluşturulmamış</div>';
-                }
+                if (APP.records.length === 0) html += '<div class="alert alert-info">Henüz kayıt oluşturulmamış</div>';
                 for (var i = APP.records.length - 1; i >= 0; i--) {
                     var r = APP.records[i];
                     html += '<div class="card"><b>' + r.wname + ' - ' + r.cost + '₺</b><br><small>' + r.sname + ' • ' + r.date + ' • ' + r.hours + ' saat</small></div>';
@@ -344,11 +346,16 @@
             
             var workersData = await loadData('workers');
             APP.workers = [];
+            
+            console.log('Workers data:', workersData);
+            
             for (var i = 1; i < workersData.length; i++) {
-                if (workersData[i][0]) {
-                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1], wage: workersData[i][2] });
+                if (workersData[i] && workersData[i][0]) {
+                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1] || '', wage: workersData[i][2] || '' });
                 }
             }
+            
+            console.log('Workers array:', APP.workers);
             
             if (APP.workers.length === 0) { 
                 alert('⚠️ Henüz işçi kaydı yok!'); 
@@ -364,7 +371,7 @@
             html += '<h2>İsminizi Seçin</h2>';
             html += '<div class="form-group"><select id="ws"><option value="">Seçin...</option>';
             for (var i = 0; i < APP.workers.length; i++) {
-                html += '<option value="' + APP.workers[i].id + '">' + APP.workers[i].name + '</option>';
+                html += '<option value="' + i + '">' + APP.workers[i].name + '</option>';
             }
             html += '</select></div>';
             html += '<button class="btn btn-success" onclick="loginWorker()">Giriş</button>';
@@ -373,14 +380,18 @@
         }
 
         function loginWorker() {
-            var id = document.getElementById('ws').value;
-            if (!id) { alert('❌ İşçi seçin!'); return; }
-            for (var i = 0; i < APP.workers.length; i++) {
-                if (APP.workers[i].id === id) {
-                    APP.currentWorker = APP.workers[i];
-                    break;
-                }
+            var idx = parseInt(document.getElementById('ws').value);
+            console.log('Login worker index:', idx);
+            console.log('Workers:', APP.workers);
+            
+            if (isNaN(idx) || idx < 0) { 
+                alert('❌ İşçi seçin!'); 
+                return; 
             }
+            
+            APP.currentWorker = APP.workers[idx];
+            console.log('Selected worker:', APP.currentWorker);
+            
             localStorage.setItem('currentWorker', JSON.stringify(APP.currentWorker));
             showWorkerPanel();
         }
@@ -395,23 +406,23 @@
             APP.sites = [];
             
             for (var i = 1; i < recordsData.length; i++) {
-                if (recordsData[i][0]) {
+                if (recordsData[i] && recordsData[i][0]) {
                     APP.records.push({
                         id: recordsData[i][0],
-                        wid: recordsData[i][1],
-                        wname: recordsData[i][2],
-                        sid: recordsData[i][3],
-                        sname: recordsData[i][4],
-                        date: recordsData[i][5],
-                        hours: recordsData[i][6],
-                        cost: recordsData[i][7]
+                        wid: recordsData[i][1] || '',
+                        wname: recordsData[i][2] || '',
+                        sid: recordsData[i][3] || '',
+                        sname: recordsData[i][4] || '',
+                        date: recordsData[i][5] || '',
+                        hours: recordsData[i][6] || '',
+                        cost: recordsData[i][7] || ''
                     });
                 }
             }
             
             for (var i = 1; i < sitesData.length; i++) {
-                if (sitesData[i][0]) {
-                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1], addr: sitesData[i][2] });
+                if (sitesData[i] && sitesData[i][0]) {
+                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1] || '', addr: sitesData[i][2] || '' });
                 }
             }
             
@@ -442,9 +453,7 @@
                 html += '</select></div>';
                 html += '<button class="btn btn-success" onclick="startWork()" ' + (!APP.location ? 'disabled' : '') + '>🚀 Çalışmaya Başla</button>';
                 html += '<h3>Yüklediğim Kayıtlar (' + myRecs.length + ')</h3>';
-                if (myRecs.length === 0) {
-                    html += '<div class="alert alert-info">Henüz kayıt yok</div>';
-                }
+                if (myRecs.length === 0) html += '<div class="alert alert-info">Henüz kayıt yok</div>';
                 for (var i = myRecs.length - 1; i >= 0; i--) {
                     var r = myRecs[i];
                     html += '<div class="card"><b>' + r.sname + '</b><br><small>' + r.date + ' • ' + r.hours + ' saat</small></div>';
@@ -490,7 +499,6 @@
                 var c = ((parseFloat(APP.currentWorker.wage) / 8) * parseFloat(h)).toFixed(2);
                 var id = Date.now().toString();
                 var date = new Date().toISOString().split('T')[0];
-                var photoData = 'PHOTO_' + id;
                 
                 var success = await saveData('records', [[
                     id,
@@ -501,7 +509,7 @@
                     date,
                     h,
                     c,
-                    photoData
+                    'PHOTO_' + id
                 ]]);
                 
                 if (success) {
