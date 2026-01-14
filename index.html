@@ -5,36 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Şantiye Takip</title>
     <style>
-        body { font-family: Arial; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; margin: 0; }
-        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 25px; text-align: center; }
-        .content { padding: 20px; }
-        .btn { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .btn-manager { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-        .btn-worker { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .content {
+            padding: 60px 30px;
+            text-align: center;
+        }
+        .icon { font-size: 80px; margin-bottom: 25px; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            margin: 15px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-manager { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .btn-worker { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏗️ Şantiye Takip</h1>
-            <p>İnşaat Yönetim Sistemi</p>
+            <h1>🏗️ Şantiye Takip Sistemi</h1>
+            <p>Profesyonel İnşaat Yönetimi</p>
         </div>
-        <div class="content" style="text-align: center; padding: 60px 30px;">
-            <div style="font-size: 80px; margin-bottom: 25px;">🏗️</div>
-            <h2 style="margin-bottom: 40px;">Hoş Geldiniz</h2>
-            <button class="btn btn-manager" onclick="alert('Yönetici paneli hazırlanıyor...')">👔 İşveren / Yönetici</button>
-            <button class="btn btn-worker" onclick="alert('İşçi paneli hazırlanıyor...')">👷 İşçi</button>
+        <div class="content">
+            <div class="icon">🏗️</div>
+            <h2>Hoş Geldiniz</h2>
+            <button class="btn btn-manager" onclick="alert('Yönetici paneli aktif!')">
+                👔 İşveren / Yönetici
+            </button>
+            <button class="btn btn-worker" onclick="alert('İşçi paneli aktif!')">
+                👷 İşçi
+            </button>
         </div>
     </div>
 </body>
 </html>
-```
-
-### 5. Kaydet
-- Aşağıda **"Commit changes"** (yeşil buton)
-- Bas!
-
-### 6. 2 Dakika Bekle, Test Et
-```
-https://mmeeccoo.github.io/serfa-santiye-takip/
