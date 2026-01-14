@@ -58,6 +58,7 @@
         .btn-excel { background: #217346; }
         .btn-back { background: white; color: #667eea; border: 2px solid #667eea; }
         .btn-refresh { background: #f39c12; }
+        .btn-delete { background: #e74c3c; padding: 8px 12px; font-size: 13px; margin: 5px 0; }
         .form-group { margin-bottom: 18px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
         .form-group input, .form-group select {
@@ -94,6 +95,7 @@
         .alert-danger { background: #f8d7da; color: #721c24; }
         .alert-success { background: #d4edda; color: #155724; }
         .alert-info { background: #d1ecf1; color: #0c5460; }
+        .alert-warning { background: #fff3cd; color: #856404; }
         .location-badge { 
             display: inline-block; 
             padding: 8px 14px; 
@@ -110,6 +112,8 @@
         .loading { text-align: center; padding: 40px; color: #666; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .settings-box { background: #fff3cd; padding: 15px; border-radius: 10px; margin: 20px 0; }
+        .settings-box h4 { margin-bottom: 10px; color: #856404; }
     </style>
 </head>
 <body>
@@ -120,6 +124,7 @@
 
     <script>
         var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMG-YqtjVNkkRuMD_4UNhLkCdU03eNLTB31fjDI5rdYd_YeTRTbxMtmepf3TpSFTN4/exec';
+        var ADMIN_PASSWORD = localStorage.getItem('adminPassword') || '1234';
         
         var APP = {
             workers: [],
@@ -127,8 +132,7 @@
             records: [],
             currentWorker: JSON.parse(localStorage.getItem('currentWorker') || 'null'),
             workStart: JSON.parse(localStorage.getItem('workStart') || 'null'),
-            location: null,
-            PASSWORD: '1234'
+            location: null
         };
 
         function init() {
@@ -140,14 +144,8 @@
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    function(pos) { 
-                        APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                        console.log('GPS OK:', APP.location);
-                    },
-                    function(err) { 
-                        APP.location = null;
-                        console.log('GPS ERROR:', err);
-                    },
+                    function(pos) { APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                    function() { APP.location = null; },
                     { enableHighAccuracy: true }
                 );
             }
@@ -163,28 +161,23 @@
 
         async function loadData(sheet) {
             try {
-                console.log('Yükleniyor:', sheet);
                 var res = await fetch(SCRIPT_URL + '?sheet=' + sheet);
                 var data = await res.json();
-                console.log('Yüklendi:', sheet, data);
                 return data.data || [];
             } catch (e) {
-                console.error('Yükleme hatası:', sheet, e);
-                alert('⚠️ Veri yüklenemedi: ' + sheet);
+                console.error('Yükleme hatası:', e);
                 return [];
             }
         }
 
         async function saveData(sheet, values) {
             try {
-                console.log('Kaydediliyor:', sheet, values);
                 var res = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ sheet: sheet, values: values })
                 });
                 var result = await res.json();
-                console.log('Kaydedildi:', result);
                 return result.success;
             } catch (e) {
                 console.error('Kayıt hatası:', e);
@@ -211,14 +204,14 @@
             html += '<div style="text-align: center; padding: 40px 20px;">';
             html += '<div style="font-size: 60px; margin-bottom: 20px;">🔐</div>';
             html += '<h2>Şifre Girin</h2>';
-            html += '<div class="form-group"><input type="password" id="pass" placeholder="Şifre (1234)"></div>';
+            html += '<div class="form-group"><input type="password" id="pass" placeholder="Şifre"></div>';
             html += '<button class="btn btn-primary" onclick="checkPass()">Giriş</button>';
             html += '</div></div>';
             render(html);
         }
 
         function checkPass() {
-            if (document.getElementById('pass').value === APP.PASSWORD) {
+            if (document.getElementById('pass').value === ADMIN_PASSWORD) {
                 showManagerPanel('add');
             } else {
                 alert('❌ Hatalı şifre!');
@@ -238,7 +231,12 @@
             
             for (var i = 1; i < workersData.length; i++) {
                 if (workersData[i] && workersData[i][0]) {
-                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1] || '', wage: workersData[i][2] || '' });
+                    APP.workers.push({ 
+                        id: workersData[i][0], 
+                        name: workersData[i][1] || '', 
+                        wage: workersData[i][2] || '',
+                        password: workersData[i][3] || ''
+                    });
                 }
             }
             
@@ -268,6 +266,7 @@
             html += '<button class="tab ' + (tab === 'add' ? 'active' : '') + '" onclick="showManagerPanel(\'add\')">➕ Ekle</button>';
             html += '<button class="tab ' + (tab === 'list' ? 'active' : '') + '" onclick="showManagerPanel(\'list\')">📋 Liste</button>';
             html += '<button class="tab ' + (tab === 'report' ? 'active' : '') + '" onclick="showManagerPanel(\'report\')">📊 Rapor</button>';
+            html += '<button class="tab ' + (tab === 'settings' ? 'active' : '') + '" onclick="showManagerPanel(\'settings\')">⚙️ Ayarlar</button>';
             html += '</div><div class="content">';
             html += '<button class="btn btn-back" onclick="showHome()">← Çıkış</button>';
 
@@ -275,21 +274,24 @@
                 html += '<h3>İşçi Ekle</h3>';
                 html += '<div class="form-group"><label>Ad Soyad</label><input id="wn"></div>';
                 html += '<div class="form-group"><label>Günlük Ücret (₺)</label><input type="number" id="ww"></div>';
-                html += '<button class="btn btn-primary" onclick="addWorker()">Ekle</button><hr style="margin: 30px 0;">';
+                html += '<div class="form-group"><label>İşçi Şifresi (4 haneli)</label><input type="text" id="wp" placeholder="örn: 5678" maxlength="4"></div>';
+                html += '<button class="btn btn-primary" onclick="addWorker()">İşçi Ekle</button><hr style="margin: 30px 0;">';
                 html += '<h3>Şantiye Ekle</h3>';
                 html += '<div class="form-group"><label>Şantiye Adı</label><input id="sn"></div>';
                 html += '<div class="form-group"><label>Adres</label><input id="sa"></div>';
-                html += '<button class="btn btn-primary" onclick="addSite()">Ekle</button>';
+                html += '<button class="btn btn-primary" onclick="addSite()">Şantiye Ekle</button>';
             } else if (tab === 'list') {
                 html += '<h3>İşçiler (' + APP.workers.length + ')</h3>';
                 if (APP.workers.length === 0) html += '<div class="alert alert-info">Henüz işçi eklenmemiş</div>';
                 for (var i = 0; i < APP.workers.length; i++) {
-                    html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün</small></div>';
+                    html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün • 🔐 Şifre: ' + APP.workers[i].password + '</small><br>';
+                    html += '<button class="btn btn-delete" onclick="deleteWorker(\'' + APP.workers[i].id + '\')">🗑️ Sil</button></div>';
                 }
                 html += '<h3>Şantiyeler (' + APP.sites.length + ')</h3>';
                 if (APP.sites.length === 0) html += '<div class="alert alert-info">Henüz şantiye eklenmemiş</div>';
                 for (var i = 0; i < APP.sites.length; i++) {
-                    html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small></div>';
+                    html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small><br>';
+                    html += '<button class="btn btn-delete" onclick="deleteSite(\'' + APP.sites[i].id + '\')">🗑️ Sil</button></div>';
                 }
                 html += '<h3>Kayıtlar (' + APP.records.length + ')</h3>';
                 if (APP.records.length === 0) html += '<div class="alert alert-info">Henüz kayıt oluşturulmamış</div>';
@@ -303,26 +305,47 @@
                     totalC += parseFloat(APP.records[i].cost || 0);
                     totalH += parseFloat(APP.records[i].hours || 0);
                 }
-                html += '<button class="btn btn-excel" onclick="window.open(\'https://docs.google.com/spreadsheets/d/1S9FR9s1-5pkfhiThJelbwy0MDsA08K0qVcBvjkW3qGo\', \'_blank\')">📊 Google Sheets\'te Aç</button>';
+                html += '<button class="btn btn-excel" onclick="exportToExcel()">📊 Excel İndir</button>';
                 html += '<div class="stats">';
                 html += '<div class="stat-box"><div class="stat-value">' + totalH.toFixed(1) + '</div><div class="stat-label">TOPLAM SAAT</div></div>';
                 html += '<div class="stat-box"><div class="stat-value">' + totalC.toFixed(0) + '₺</div><div class="stat-label">TOPLAM MALİYET</div></div>';
+                html += '</div>';
+            } else if (tab === 'settings') {
+                html += '<div class="settings-box">';
+                html += '<h4>⚙️ Yönetici Şifresi Değiştir</h4>';
+                html += '<div class="form-group"><label>Mevcut Şifre: <b>' + ADMIN_PASSWORD + '</b></label></div>';
+                html += '<div class="form-group"><label>Yeni Şifre</label><input type="text" id="newpass"></div>';
+                html += '<button class="btn btn-primary" onclick="changeAdminPassword()">Şifreyi Değiştir</button>';
                 html += '</div>';
             }
             html += '</div>';
             render(html);
         }
 
+        function changeAdminPassword() {
+            var newPass = document.getElementById('newpass').value.trim();
+            if (!newPass || newPass.length < 4) {
+                alert('❌ Şifre en az 4 karakter olmalı!');
+                return;
+            }
+            ADMIN_PASSWORD = newPass;
+            localStorage.setItem('adminPassword', ADMIN_PASSWORD);
+            alert('✅ Yönetici şifresi değiştirildi: ' + ADMIN_PASSWORD);
+            showManagerPanel('settings');
+        }
+
         async function addWorker() {
             var n = document.getElementById('wn').value.trim();
             var w = document.getElementById('ww').value.trim();
-            if (!n || !w) { alert('❌ Eksik bilgi!'); return; }
+            var p = document.getElementById('wp').value.trim();
+            if (!n || !w || !p) { alert('❌ Tüm alanları doldurun!'); return; }
+            if (p.length !== 4) { alert('❌ Şifre 4 haneli olmalı!'); return; }
             
             var id = Date.now().toString();
-            var success = await saveData('workers', [[id, n, w]]);
+            var success = await saveData('workers', [[id, n, w, p]]);
             
             if (success) {
-                alert('✅ İşçi eklendi!');
+                alert('✅ İşçi eklendi!\nAd: ' + n + '\nŞifre: ' + p);
                 showManagerPanel('add');
             }
         }
@@ -341,21 +364,46 @@
             }
         }
 
+        async function deleteWorker(id) {
+            if (!confirm('Bu işçiyi silmek istediğinize emin misiniz?')) return;
+            alert('⚠️ Silme özelliği Google Sheets\'te manuel yapılmalı. ID: ' + id);
+        }
+
+        async function deleteSite(id) {
+            if (!confirm('Bu şantiyeyi silmek istediğinize emin misiniz?')) return;
+            alert('⚠️ Silme özelliği Google Sheets\'te manuel yapılmalı. ID: ' + id);
+        }
+
+        function exportToExcel() {
+            var csv = 'İşçi,Şantiye,Tarih,Saat,Maliyet (₺)\n';
+            for (var i = 0; i < APP.records.length; i++) {
+                var r = APP.records[i];
+                csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.hours + ',' + r.cost + '\n';
+            }
+            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'serfa-rapor-' + new Date().toISOString().split('T')[0] + '.csv';
+            link.click();
+            alert('✅ Excel dosyası indiriliyor!');
+        }
+
         async function showWorkerLogin() {
             render('<div class="header worker"><h1>👷 İşçi Girişi</h1></div><div class="content">' + showLoading() + '</div>');
             
             var workersData = await loadData('workers');
             APP.workers = [];
             
-            console.log('Workers data:', workersData);
-            
             for (var i = 1; i < workersData.length; i++) {
                 if (workersData[i] && workersData[i][0]) {
-                    APP.workers.push({ id: workersData[i][0], name: workersData[i][1] || '', wage: workersData[i][2] || '' });
+                    APP.workers.push({ 
+                        id: workersData[i][0], 
+                        name: workersData[i][1] || '', 
+                        wage: workersData[i][2] || '',
+                        password: workersData[i][3] || ''
+                    });
                 }
             }
-            
-            console.log('Workers array:', APP.workers);
             
             if (APP.workers.length === 0) { 
                 alert('⚠️ Henüz işçi kaydı yok!'); 
@@ -374,6 +422,7 @@
                 html += '<option value="' + i + '">' + APP.workers[i].name + '</option>';
             }
             html += '</select></div>';
+            html += '<div class="form-group"><label>Şifreniz (4 haneli)</label><input type="password" id="wpass" maxlength="4" placeholder="****"></div>';
             html += '<button class="btn btn-success" onclick="loginWorker()">Giriş</button>';
             html += '</div></div>';
             render(html);
@@ -381,16 +430,24 @@
 
         function loginWorker() {
             var idx = parseInt(document.getElementById('ws').value);
-            console.log('Login worker index:', idx);
-            console.log('Workers:', APP.workers);
+            var pass = document.getElementById('wpass').value.trim();
             
             if (isNaN(idx) || idx < 0) { 
                 alert('❌ İşçi seçin!'); 
                 return; 
             }
             
+            if (!pass) {
+                alert('❌ Şifre girin!');
+                return;
+            }
+            
             APP.currentWorker = APP.workers[idx];
-            console.log('Selected worker:', APP.currentWorker);
+            
+            if (APP.currentWorker.password !== pass) {
+                alert('❌ Hatalı şifre!');
+                return;
+            }
             
             localStorage.setItem('currentWorker', JSON.stringify(APP.currentWorker));
             showWorkerPanel();
@@ -440,18 +497,24 @@
             if (!APP.workStart) {
                 if (!APP.location) {
                     html += '<div class="alert alert-danger">⚠️ GPS KAPALI!</div>';
-                    html += '<button class="btn btn-refresh" onclick="getLocation(); setTimeout(showWorkerPanel, 500);">🔄 GPS Yenile</button>';
+                    html += '<button class="btn btn-refresh" onclick="getLocation(); setTimeout(showWorkerPanel, 1000);">🔄 GPS Yenile</button>';
                 } else {
                     html += '<div class="location-badge">✅ GPS Aktif</div>';
                 }
                 
                 html += '<div class="status-card status-ready"><div style="font-size: 60px; margin-bottom: 15px;">🟢</div><h2>Hazır</h2><p>Çalışmaya başlamak için şantiye seçin</p></div>';
-                html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
-                for (var i = 0; i < APP.sites.length; i++) {
-                    html += '<option value="' + APP.sites[i].id + '">' + APP.sites[i].name + '</option>';
+                
+                if (APP.sites.length === 0) {
+                    html += '<div class="alert alert-warning">⚠️ Henüz şantiye eklenmemiş!</div>';
+                } else {
+                    html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
+                    for (var i = 0; i < APP.sites.length; i++) {
+                        html += '<option value="' + i + '">' + APP.sites[i].name + '</option>';
+                    }
+                    html += '</select></div>';
+                    html += '<button class="btn btn-success" onclick="startWork()" ' + (!APP.location ? 'disabled' : '') + '>🚀 Çalışmaya Başla</button>';
                 }
-                html += '</select></div>';
-                html += '<button class="btn btn-success" onclick="startWork()" ' + (!APP.location ? 'disabled' : '') + '>🚀 Çalışmaya Başla</button>';
+                
                 html += '<h3>Yüklediğim Kayıtlar (' + myRecs.length + ')</h3>';
                 if (myRecs.length === 0) html += '<div class="alert alert-info">Henüz kayıt yok</div>';
                 for (var i = myRecs.length - 1; i >= 0; i--) {
@@ -469,20 +532,28 @@
         }
 
         function startWork() {
-            if (!APP.location) { alert('❌ GPS aktif değil!'); return; }
-            var sid = document.getElementById('wss').value;
-            if (!sid) { alert('❌ Şantiye seçin!'); return; }
-            var site = null;
-            for (var i = 0; i < APP.sites.length; i++) {
-                if (APP.sites[i].id === sid) { site = APP.sites[i]; break; }
+            if (!APP.location) { 
+                alert('❌ GPS aktif değil! GPS\'i açın ve "GPS Yenile" butonuna basın.'); 
+                return; 
             }
+            
+            var idx = parseInt(document.getElementById('wss').value);
+            
+            if (isNaN(idx) || idx < 0) { 
+                alert('❌ Şantiye seçin!'); 
+                return; 
+            }
+            
+            var site = APP.sites[idx];
+            
             APP.workStart = { 
                 wid: APP.currentWorker.id, 
                 wname: APP.currentWorker.name, 
-                sid: sid, 
+                sid: site.id, 
                 sname: site.name, 
                 time: Date.now()
             };
+            
             localStorage.setItem('workStart', JSON.stringify(APP.workStart));
             alert('✅ Çalışma başladı!');
             showWorkerPanel();
