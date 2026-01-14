@@ -107,7 +107,6 @@
         }
         .status-card { padding: 40px 30px; border-radius: 14px; text-align: center; margin: 20px 0; color: white; }
         .status-ready { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
-        .status-working { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
         h3 { margin: 25px 0 15px; color: #333; font-size: 18px; }
         .loading { text-align: center; padding: 40px; color: #666; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
@@ -131,7 +130,6 @@
             sites: [],
             records: [],
             currentWorker: JSON.parse(localStorage.getItem('currentWorker') || 'null'),
-            workStart: JSON.parse(localStorage.getItem('workStart') || 'null'),
             location: null
         };
 
@@ -144,8 +142,14 @@
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    function(pos) { APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
-                    function() { APP.location = null; },
+                    function(pos) { 
+                        APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        console.log('GPS OK:', APP.location);
+                    },
+                    function(err) { 
+                        APP.location = null;
+                        console.log('GPS ERROR:', err);
+                    },
                     { enableHighAccuracy: true }
                 );
             }
@@ -161,27 +165,31 @@
 
         async function loadData(sheet) {
             try {
+                console.log('Yükleniyor:', sheet);
                 var res = await fetch(SCRIPT_URL + '?sheet=' + sheet);
                 var data = await res.json();
+                console.log('Yüklendi:', sheet, data);
                 return data.data || [];
             } catch (e) {
-                console.error('Yükleme hatası:', e);
+                console.error('Yükleme hatası:', sheet, e);
                 return [];
             }
         }
 
         async function saveData(sheet, values) {
             try {
+                console.log('Kaydediliyor:', sheet, values);
                 var res = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ sheet: sheet, values: values })
                 });
                 var result = await res.json();
+                console.log('Kaydedildi:', result);
                 return result.success;
             } catch (e) {
                 console.error('Kayıt hatası:', e);
-                alert('⚠️ Veri kaydedilemedi!');
+                alert('⚠️ Veri kaydedilemedi. İnternet bağlantınızı kontrol edin.');
                 return false;
             }
         }
@@ -255,8 +263,9 @@
                         sid: recordsData[i][3] || '',
                         sname: recordsData[i][4] || '',
                         date: recordsData[i][5] || '',
-                        hours: recordsData[i][6] || '',
-                        cost: recordsData[i][7] || ''
+                        time: recordsData[i][6] || '',
+                        lat: recordsData[i][7] || '',
+                        lng: recordsData[i][8] || ''
                     });
                 }
             }
@@ -274,7 +283,7 @@
                 html += '<h3>İşçi Ekle</h3>';
                 html += '<div class="form-group"><label>Ad Soyad</label><input id="wn"></div>';
                 html += '<div class="form-group"><label>Günlük Ücret (₺)</label><input type="number" id="ww"></div>';
-                html += '<div class="form-group"><label>İşçi Şifresi (4 haneli)</label><input type="text" id="wp" placeholder="örn: 5678" maxlength="4"></div>';
+                html += '<div class="form-group"><label>PIN Kodu (4 haneli)</label><input type="text" id="wp" placeholder="örn: 5678" maxlength="4"></div>';
                 html += '<button class="btn btn-primary" onclick="addWorker()">İşçi Ekle</button><hr style="margin: 30px 0;">';
                 html += '<h3>Şantiye Ekle</h3>';
                 html += '<div class="form-group"><label>Şantiye Adı</label><input id="sn"></div>';
@@ -284,32 +293,44 @@
                 html += '<h3>İşçiler (' + APP.workers.length + ')</h3>';
                 if (APP.workers.length === 0) html += '<div class="alert alert-info">Henüz işçi eklenmemiş</div>';
                 for (var i = 0; i < APP.workers.length; i++) {
-                    html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün • 🔐 Şifre: ' + APP.workers[i].password + '</small><br>';
-                    html += '<button class="btn btn-delete" onclick="deleteWorker(\'' + APP.workers[i].id + '\')">🗑️ Sil</button></div>';
+                    html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün • 🔐 PIN: ' + APP.workers[i].password + '</small></div>';
                 }
                 html += '<h3>Şantiyeler (' + APP.sites.length + ')</h3>';
                 if (APP.sites.length === 0) html += '<div class="alert alert-info">Henüz şantiye eklenmemiş</div>';
                 for (var i = 0; i < APP.sites.length; i++) {
-                    html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small><br>';
-                    html += '<button class="btn btn-delete" onclick="deleteSite(\'' + APP.sites[i].id + '\')">🗑️ Sil</button></div>';
+                    html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small></div>';
                 }
                 html += '<h3>Kayıtlar (' + APP.records.length + ')</h3>';
                 if (APP.records.length === 0) html += '<div class="alert alert-info">Henüz kayıt oluşturulmamış</div>';
                 for (var i = APP.records.length - 1; i >= 0; i--) {
                     var r = APP.records[i];
-                    html += '<div class="card"><b>' + r.wname + ' - ' + r.cost + '₺</b><br><small>' + r.sname + ' • ' + r.date + ' • ' + r.hours + ' saat</small></div>';
+                    html += '<div class="card"><b>' + r.wname + '</b><br>';
+                    html += '<small>🏗️ ' + r.sname + ' • 📅 ' + r.date + ' • ⏰ ' + r.time + '</small><br>';
+                    if (r.lat && r.lng) {
+                        html += '<small>📍 Konum: ' + parseFloat(r.lat).toFixed(5) + ', ' + parseFloat(r.lng).toFixed(5) + '</small>';
+                    }
+                    html += '</div>';
                 }
             } else if (tab === 'report') {
-                var totalC = 0, totalH = 0;
-                for (var i = 0; i < APP.records.length; i++) {
-                    totalC += parseFloat(APP.records[i].cost || 0);
-                    totalH += parseFloat(APP.records[i].hours || 0);
-                }
                 html += '<button class="btn btn-excel" onclick="exportToExcel()">📊 Excel İndir</button>';
                 html += '<div class="stats">';
-                html += '<div class="stat-box"><div class="stat-value">' + totalH.toFixed(1) + '</div><div class="stat-label">TOPLAM SAAT</div></div>';
-                html += '<div class="stat-box"><div class="stat-value">' + totalC.toFixed(0) + '₺</div><div class="stat-label">TOPLAM MALİYET</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + APP.records.length + '</div><div class="stat-label">TOPLAM KAYIT</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + APP.workers.length + '</div><div class="stat-label">AKTİF İŞÇİ</div></div>';
                 html += '</div>';
+                
+                html += '<h3>İşçi Bazlı Rapor</h3>';
+                var workerStats = {};
+                for (var i = 0; i < APP.records.length; i++) {
+                    var wid = APP.records[i].wid;
+                    if (!workerStats[wid]) {
+                        workerStats[wid] = { name: APP.records[i].wname, count: 0 };
+                    }
+                    workerStats[wid].count++;
+                }
+                for (var wid in workerStats) {
+                    var ws = workerStats[wid];
+                    html += '<div class="card"><b>' + ws.name + '</b><br><small>📝 ' + ws.count + ' kayıt</small></div>';
+                }
             } else if (tab === 'settings') {
                 html += '<div class="settings-box">';
                 html += '<h4>⚙️ Yönetici Şifresi Değiştir</h4>';
@@ -339,13 +360,13 @@
             var w = document.getElementById('ww').value.trim();
             var p = document.getElementById('wp').value.trim();
             if (!n || !w || !p) { alert('❌ Tüm alanları doldurun!'); return; }
-            if (p.length !== 4) { alert('❌ Şifre 4 haneli olmalı!'); return; }
+            if (p.length !== 4) { alert('❌ PIN kodu 4 haneli olmalı!'); return; }
             
             var id = Date.now().toString();
             var success = await saveData('workers', [[id, n, w, p]]);
             
             if (success) {
-                alert('✅ İşçi eklendi!\nAd: ' + n + '\nŞifre: ' + p);
+                alert('✅ İşçi eklendi!\nAd: ' + n + '\nPIN: ' + p);
                 showManagerPanel('add');
             }
         }
@@ -364,21 +385,11 @@
             }
         }
 
-        async function deleteWorker(id) {
-            if (!confirm('Bu işçiyi silmek istediğinize emin misiniz?')) return;
-            alert('⚠️ Silme özelliği Google Sheets\'te manuel yapılmalı. ID: ' + id);
-        }
-
-        async function deleteSite(id) {
-            if (!confirm('Bu şantiyeyi silmek istediğinize emin misiniz?')) return;
-            alert('⚠️ Silme özelliği Google Sheets\'te manuel yapılmalı. ID: ' + id);
-        }
-
         function exportToExcel() {
-            var csv = 'İşçi,Şantiye,Tarih,Saat,Maliyet (₺)\n';
+            var csv = 'İşçi,Şantiye,Tarih,Saat,Enlem,Boylam\n';
             for (var i = 0; i < APP.records.length; i++) {
                 var r = APP.records[i];
-                csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.hours + ',' + r.cost + '\n';
+                csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.time + ',' + (r.lat || '') + ',' + (r.lng || '') + '\n';
             }
             var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             var link = document.createElement('a');
@@ -422,7 +433,7 @@
                 html += '<option value="' + i + '">' + APP.workers[i].name + '</option>';
             }
             html += '</select></div>';
-            html += '<div class="form-group"><label>Şifreniz (4 haneli)</label><input type="password" id="wpass" maxlength="4" placeholder="****"></div>';
+            html += '<div class="form-group"><label>PIN Kodunuz (4 haneli)</label><input type="password" id="wpass" maxlength="4" placeholder="****"></div>';
             html += '<button class="btn btn-success" onclick="loginWorker()">Giriş</button>';
             html += '</div></div>';
             render(html);
@@ -438,18 +449,14 @@
             }
             
             if (!pass) {
-                alert('❌ Şifre girin!');
+                alert('❌ PIN kodu girin!');
                 return;
             }
             
             APP.currentWorker = APP.workers[idx];
             
-            console.log('Girilen şifre:', pass);
-            console.log('Beklenen şifre:', APP.currentWorker.password);
-            console.log('Şifre tipi:', typeof APP.currentWorker.password, typeof pass);
-            
-            if (String(APP.currentWorker.password).trim() !== String(pass).trim()) {
-                alert('❌ Hatalı şifre!\nGirilen: ' + pass + '\nBeklenen: ' + APP.currentWorker.password);
+            if (APP.currentWorker.password !== pass) {
+                alert('❌ Hatalı PIN kodu!');
                 return;
             }
             
@@ -475,8 +482,9 @@
                         sid: recordsData[i][3] || '',
                         sname: recordsData[i][4] || '',
                         date: recordsData[i][5] || '',
-                        hours: recordsData[i][6] || '',
-                        cost: recordsData[i][7] || ''
+                        time: recordsData[i][6] || '',
+                        lat: recordsData[i][7] || '',
+                        lng: recordsData[i][8] || ''
                     });
                 }
             }
@@ -498,46 +506,40 @@
             html += '<div class="content">';
             html += '<button class="btn btn-back" onclick="logoutWorker()">🚪 Çıkış</button>';
 
-            if (!APP.workStart) {
-                if (!APP.location) {
-                    html += '<div class="alert alert-danger">⚠️ GPS KAPALI!</div>';
-                    html += '<button class="btn btn-refresh" onclick="getLocation(); setTimeout(showWorkerPanel, 1000);">🔄 GPS Yenile</button>';
-                } else {
-                    html += '<div class="location-badge">✅ GPS Aktif</div>';
-                }
-                
-                html += '<div class="status-card status-ready"><div style="font-size: 60px; margin-bottom: 15px;">🟢</div><h2>Hazır</h2><p>Çalışmaya başlamak için şantiye seçin</p></div>';
-                
-                if (APP.sites.length === 0) {
-                    html += '<div class="alert alert-warning">⚠️ Henüz şantiye eklenmemiş!</div>';
-                } else {
-                    html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
-                    for (var i = 0; i < APP.sites.length; i++) {
-                        html += '<option value="' + i + '">' + APP.sites[i].name + '</option>';
-                    }
-                    html += '</select></div>';
-                    html += '<button class="btn btn-success" onclick="startWork()" ' + (!APP.location ? 'disabled' : '') + '>🚀 Çalışmaya Başla</button>';
-                }
-                
-                html += '<h3>Yüklediğim Kayıtlar (' + myRecs.length + ')</h3>';
-                if (myRecs.length === 0) html += '<div class="alert alert-info">Henüz kayıt yok</div>';
-                for (var i = myRecs.length - 1; i >= 0; i--) {
-                    var r = myRecs[i];
-                    html += '<div class="card"><b>' + r.sname + '</b><br><small>' + r.date + ' • ' + r.hours + ' saat</small></div>';
-                }
+            if (!APP.location) {
+                html += '<div class="alert alert-danger">⚠️ GPS KAPALI!</div>';
+                html += '<button class="btn btn-refresh" onclick="getLocation(); setTimeout(showWorkerPanel, 1000);">🔄 GPS Yenile</button>';
             } else {
-                html += '<div class="alert alert-success">⚡ Çalışma devam ediyor...</div>';
-                html += '<div class="status-card status-working"><div style="font-size: 60px; margin-bottom: 15px;">⚡</div><h2>' + APP.workStart.sname + '</h2><p>Başlangıç: ' + new Date(APP.workStart.time).toLocaleTimeString('tr-TR') + '</p></div>';
-                html += '<div class="form-group"><label>Fotoğraf (Zorunlu)</label><input type="file" id="wp" accept="image/*" capture="environment" style="width:100%;padding:12px;border:2px dashed #2ecc71;border-radius:10px;"></div>';
-                html += '<button class="btn btn-danger" onclick="endWork()">⏹️ Bitir ve Kaydet</button>';
+                html += '<div class="location-badge">✅ GPS Aktif</div>';
             }
+            
+            html += '<div class="status-card status-ready"><div style="font-size: 60px; margin-bottom: 15px;">🟢</div><h2>Hazır</h2><p>Şantiye seçin ve kaydedin</p></div>';
+            
+            if (APP.sites.length === 0) {
+                html += '<div class="alert alert-warning">⚠️ Henüz şantiye eklenmemiş!</div>';
+            } else {
+                html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
+                for (var i = 0; i < APP.sites.length; i++) {
+                    html += '<option value="' + i + '">' + APP.sites[i].name + '</option>';
+                }
+                html += '</select></div>';
+                html += '<button class="btn btn-success" onclick="saveRecord()" ' + (!APP.location ? 'disabled' : '') + '>💾 Kaydet</button>';
+            }
+            
+            html += '<h3>Kayıtlarım (' + myRecs.length + ')</h3>';
+            if (myRecs.length === 0) html += '<div class="alert alert-info">Henüz kayıt yok</div>';
+            for (var i = myRecs.length - 1; i >= 0; i--) {
+                var r = myRecs[i];
+                html += '<div class="card"><b>' + r.sname + '</b><br><small>📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
+            }
+
             html += '</div>';
             render(html);
         }
 
-        function startWork() {
+        async function saveRecord() {
             if (!APP.location) { 
-                alert('❌ GPS aktif değil! GPS\'i açın ve "GPS Yenile" butonuna basın.'); 
+                alert('❌ GPS aktif değil! "GPS Yenile" butonuna basın.'); 
                 return; 
             }
             
@@ -549,60 +551,32 @@
             }
             
             var site = APP.sites[idx];
+            var now = new Date();
+            var date = now.toISOString().split('T')[0];
+            var time = now.toLocaleTimeString('tr-TR');
+            var id = Date.now().toString();
             
-            APP.workStart = { 
-                wid: APP.currentWorker.id, 
-                wname: APP.currentWorker.name, 
-                sid: site.id, 
-                sname: site.name, 
-                time: Date.now()
-            };
+            var success = await saveData('records', [[
+                id,
+                APP.currentWorker.id,
+                APP.currentWorker.name,
+                site.id,
+                site.name,
+                date,
+                time,
+                APP.location.lat.toString(),
+                APP.location.lng.toString()
+            ]]);
             
-            localStorage.setItem('workStart', JSON.stringify(APP.workStart));
-            alert('✅ Çalışma başladı!');
-            showWorkerPanel();
-        }
-
-        async function endWork() {
-            if (!APP.location) { alert('⚠️ GPS yok!'); return; }
-            var pf = document.getElementById('wp').files[0];
-            if (!pf) { alert('❌ Fotoğraf gerekli!'); return; }
-            
-            var reader = new FileReader();
-            reader.onload = async function(e) {
-                var h = ((Date.now() - APP.workStart.time) / 3600000).toFixed(2);
-                var c = ((parseFloat(APP.currentWorker.wage) / 8) * parseFloat(h)).toFixed(2);
-                var id = Date.now().toString();
-                var date = new Date().toISOString().split('T')[0];
-                
-                var success = await saveData('records', [[
-                    id,
-                    APP.workStart.wid,
-                    APP.workStart.wname,
-                    APP.workStart.sid,
-                    APP.workStart.sname,
-                    date,
-                    h,
-                    c,
-                    'PHOTO_' + id
-                ]]);
-                
-                if (success) {
-                    APP.workStart = null;
-                    localStorage.removeItem('workStart');
-                    alert('✅ Tamamlandı! ' + h + ' saat kaydedildi.');
-                    showWorkerPanel();
-                }
-            };
-            reader.readAsDataURL(pf);
+            if (success) {
+                alert('✅ Kayıt başarılı!\n' + site.name + '\n' + date + ' ' + time);
+                showWorkerPanel();
+            }
         }
 
         function logoutWorker() {
-            if (APP.workStart && !confirm('⚠️ Çalışma devam ediyor! Çıkarsanız kayıt silinecek. Emin misiniz?')) return;
             APP.currentWorker = null;
-            APP.workStart = null;
             localStorage.removeItem('currentWorker');
-            localStorage.removeItem('workStart');
             showHome();
         }
 
