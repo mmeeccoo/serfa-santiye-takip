@@ -3,68 +3,450 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Şantiye Takip</title>
+    <title>SERFA TEKNİK - Şantiye Takip</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            padding: 10px;
         }
         .container {
             max-width: 500px;
-            width: 100%;
+            margin: 0 auto;
             background: white;
             border-radius: 20px;
+            overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            min-height: 95vh;
+        }
+        .brand {
+            background: #1a1a2e;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 2px;
         }
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 25px;
+            padding: 25px 20px;
             text-align: center;
         }
-        .content {
-            padding: 60px 30px;
-            text-align: center;
-        }
-        .icon { font-size: 80px; margin-bottom: 25px; }
+        .header.worker { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
+        .header h1 { font-size: 22px; margin-bottom: 5px; }
+        .header p { font-size: 13px; opacity: 0.9; }
+        .content { padding: 20px; min-height: 400px; }
         .btn {
-            display: block;
             width: 100%;
-            padding: 18px;
-            margin: 15px 0;
+            padding: 16px;
+            margin: 10px 0;
             border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
             cursor: pointer;
-            color: white;
+            transition: all 0.3s;
         }
-        .btn-manager { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .btn-worker { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-manager { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-worker { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #2ecc71; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-excel { background: #217346; color: white; }
+        .btn-back { background: white; color: #667eea; border: 2px solid #667eea; padding: 12px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #333; font-size: 13px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .card { background: #f8f9fa; padding: 14px; margin: 10px 0; border-radius: 10px; border-left: 4px solid #667eea; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 15px 0; }
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; margin-bottom: 5px; }
+        .stat-label { font-size: 12px; opacity: 0.9; }
+        .tabs { display: flex; background: #f5f5f5; }
+        .tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            background: none;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+        }
+        .tab.active { background: white; color: #667eea; border-bottom: 3px solid #667eea; }
+        .alert { padding: 12px; margin: 12px 0; border-radius: 8px; text-align: center; font-weight: 600; font-size: 13px; }
+        .alert-danger { background: #f8d7da; color: #721c24; }
+        .alert-success { background: #d4edda; color: #155724; }
+        .location-badge {
+            display: inline-flex;
+            padding: 6px 12px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 6px;
+            font-size: 12px;
+            margin: 8px 0;
+        }
+        .photo-preview { margin-top: 12px; border-radius: 10px; overflow: hidden; max-width: 100%; }
+        .photo-preview img { width: 100%; height: auto; display: block; }
+        h3 { margin: 20px 0 12px; color: #333; font-size: 17px; }
+        .home-icon { font-size: 70px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🏗️ Şantiye Takip Sistemi</h1>
-            <p>Profesyonel İnşaat Yönetimi</p>
-        </div>
-        <div class="content">
-            <div class="icon">🏗️</div>
-            <h2>Hoş Geldiniz</h2>
-            <button class="btn btn-manager" onclick="alert('Yönetici paneli aktif!')">
-                👔 İşveren / Yönetici
-            </button>
-            <button class="btn btn-worker" onclick="alert('İşçi paneli aktif!')">
-                👷 İşçi
-            </button>
-        </div>
-    </div>
+    <div id="app"></div>
+    <script>
+        var workers = JSON.parse(localStorage.getItem('workers') || '[]');
+        var sites = JSON.parse(localStorage.getItem('sites') || '[]');
+        var records = JSON.parse(localStorage.getItem('records') || '[]');
+        var currentWorker = JSON.parse(localStorage.getItem('currentWorker') || 'null');
+        var workStart = JSON.parse(localStorage.getItem('workStart') || 'null');
+        var location = null;
+        var ADMIN_PASSWORD = '1234';
+        
+        init();
+        
+        function init() {
+            getLocation();
+            setInterval(getLocation, 30000);
+            showHome();
+        }
+        
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) { location = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                    function(err) { location = null; }
+                );
+            }
+        }
+        
+        function showHome() {
+            var html = '<div class="container">';
+            html += '<div class="brand">SERFA TEKNİK</div>';
+            html += '<div class="header"><h1>🏗️ Şantiye Takip Sistemi</h1><p>Profesyonel İnşaat Yönetimi</p></div>';
+            html += '<div style="padding: 50px 30px; text-align: center;">';
+            html += '<div class="home-icon">🏗️</div>';
+            html += '<h2 style="margin-bottom: 30px;">Hoş Geldiniz</h2>';
+            html += '<button class="btn btn-manager" onclick="showManagerLogin()">👔 İşveren / Yönetici</button>';
+            html += '<button class="btn btn-worker" onclick="showWorkerLogin()">👷 İşçi</button>';
+            html += '</div></div>';
+            document.getElementById('app').innerHTML = html;
+        }
+        
+        function showManagerLogin() {
+            var html = '<div class="container">';
+            html += '<div class="brand">SERFA TEKNİK</div>';
+            html += '<div class="header"><h1>👔 Yönetici Girişi</h1></div>';
+            html += '<div class="content">';
+            html += '<button class="btn btn-back" onclick="showHome()">← Geri</button>';
+            html += '<div style="padding: 30px 20px; text-align: center;">';
+            html += '<div style="font-size: 50px; margin-bottom: 15px;">🔐</div>';
+            html += '<h2 style="margin-bottom: 20px;">Şifre Girin</h2>';
+            html += '<div class="form-group"><input type="password" id="adminPass" placeholder="Şifre (varsayılan: 1234)"></div>';
+            html += '<button class="btn btn-primary" onclick="checkPassword()">Giriş Yap</button>';
+            html += '</div></div></div>';
+            document.getElementById('app').innerHTML = html;
+        }
+        
+        function checkPassword() {
+            if (document.getElementById('adminPass').value === ADMIN_PASSWORD) {
+                showManagerPanel('add');
+            } else {
+                alert('❌ Hatalı şifre!');
+            }
+        }
+        
+        function showManagerPanel(tab) {
+            var html = '<div class="container">';
+            html += '<div class="brand">SERFA TEKNİK</div>';
+            html += '<div class="header"><h1>👔 Yönetici Paneli</h1></div>';
+            html += '<div class="tabs">';
+            html += '<button class="tab ' + (tab === 'add' ? 'active' : '') + '" onclick="showManagerPanel(\'add\')">➕ Ekle</button>';
+            html += '<button class="tab ' + (tab === 'list' ? 'active' : '') + '" onclick="showManagerPanel(\'list\')">📋 Liste</button>';
+            html += '<button class="tab ' + (tab === 'report' ? 'active' : '') + '" onclick="showManagerPanel(\'report\')">📊 Rapor</button>';
+            html += '</div><div class="content">';
+            html += '<button class="btn btn-back" onclick="showHome()">← Çıkış</button>';
+            
+            if (tab === 'add') {
+                html += '<h3>➕ İşçi Ekle</h3>';
+                html += '<div class="form-group"><label>Ad Soyad *</label><input id="wname" placeholder="Ahmet Yılmaz"></div>';
+                html += '<div class="form-group"><label>Günlük Ücret (₺) *</label><input type="number" id="wwage" placeholder="800"></div>';
+                html += '<button class="btn btn-primary" onclick="addWorker()">İşçi Ekle</button>';
+                html += '<hr style="margin: 25px 0; border: 1px solid #f0f0f0;">';
+                html += '<h3>🏗️ Şantiye Ekle</h3>';
+                html += '<div class="form-group"><label>Şantiye Adı *</label><input id="sname" placeholder="Merkez Plaza"></div>';
+                html += '<div class="form-group"><label>Adres *</label><input id="saddr" placeholder="İstanbul, Kadıköy"></div>';
+                html += '<button class="btn btn-primary" onclick="addSite()">Şantiye Ekle</button>';
+            } else if (tab === 'list') {
+                html += '<h3>👷 İşçiler (' + workers.length + ')</h3>';
+                if (workers.length === 0) {
+                    html += '<div style="text-align: center; padding: 30px; color: #999;">Henüz işçi eklenmemiş</div>';
+                } else {
+                    for (var i = 0; i < workers.length; i++) {
+                        html += '<div class="card"><b>' + workers[i].name + '</b><br><small style="color: #666;">💰 ' + workers[i].wage + '₺/gün</small></div>';
+                    }
+                }
+                html += '<h3>🏗️ Şantiyeler (' + sites.length + ')</h3>';
+                if (sites.length === 0) {
+                    html += '<div style="text-align: center; padding: 30px; color: #999;">Henüz şantiye eklenmemiş</div>';
+                } else {
+                    for (var i = 0; i < sites.length; i++) {
+                        html += '<div class="card"><b>' + sites[i].name + '</b><br><small style="color: #666;">📍 ' + sites[i].addr + '</small></div>';
+                    }
+                }
+                html += '<h3>📝 Çalışma Kayıtları (' + records.length + ')</h3>';
+                if (records.length === 0) {
+                    html += '<div style="text-align: center; padding: 30px; color: #999;">Henüz kayıt oluşturulmamış</div>';
+                } else {
+                    for (var i = records.length - 1; i >= 0; i--) {
+                        var r = records[i];
+                        html += '<div class="card"><b>' + r.wname + ' - ' + r.cost + '₺</b><br>';
+                        html += '<small style="color: #666;">🏗️ ' + r.sname + ' • 📅 ' + r.date + ' • ⏰ ' + r.hours + ' saat</small>';
+                        if (r.photo) {
+                            html += '<div class="photo-preview"><img src="' + r.photo + '" alt="Çalışma"></div>';
+                        }
+                        html += '</div>';
+                    }
+                }
+            } else if (tab === 'report') {
+                var totalCost = 0;
+                var totalHours = 0;
+                for (var i = 0; i < records.length; i++) {
+                    totalCost += parseFloat(records[i].cost);
+                    totalHours += parseFloat(records[i].hours);
+                }
+                html += '<button class="btn btn-excel" onclick="exportToExcel()">📊 Excel\'e Dökümle</button>';
+                html += '<div class="stats">';
+                html += '<div class="stat-box"><div class="stat-value">' + totalHours.toFixed(1) + '</div><div class="stat-label">TOPLAM SAAT</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + totalCost.toFixed(0) + '₺</div><div class="stat-label">TOPLAM MALİYET</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + records.length + '</div><div class="stat-label">KAYIT SAYISI</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + workers.length + '</div><div class="stat-label">AKTİF İŞÇİ</div></div>';
+                html += '</div>';
+                
+                html += '<h3>👷 İşçi Bazlı Rapor</h3>';
+                var workerStats = {};
+                for (var i = 0; i < records.length; i++) {
+                    var wid = records[i].wid;
+                    if (!workerStats[wid]) {
+                        workerStats[wid] = { name: records[i].wname, hours: 0, cost: 0, days: 0 };
+                    }
+                    workerStats[wid].hours += parseFloat(records[i].hours);
+                    workerStats[wid].cost += parseFloat(records[i].cost);
+                    workerStats[wid].days++;
+                }
+                for (var wid in workerStats) {
+                    var ws = workerStats[wid];
+                    html += '<div class="card"><b>' + ws.name + '</b><br>';
+                    html += '<small style="color: #666;">⏰ ' + ws.hours.toFixed(1) + ' saat • 📅 ' + ws.days + ' gün • 💰 ' + ws.cost.toFixed(0) + '₺</small></div>';
+                }
+            }
+            
+            html += '</div></div>';
+            document.getElementById('app').innerHTML = html;
+        }
+        
+        function addWorker() {
+            var name = document.getElementById('wname').value.trim();
+            var wage = document.getElementById('wwage').value.trim();
+            if (!name || !wage) { alert('❌ Lütfen tüm alanları doldurun!'); return; }
+            workers.push({ id: Date.now(), name: name, wage: wage });
+            localStorage.setItem('workers', JSON.stringify(workers));
+            alert('✅ İşçi eklendi!');
+            showManagerPanel('add');
+        }
+        
+        function addSite() {
+            var name = document.getElementById('sname').value.trim();
+            var addr = document.getElementById('saddr').value.trim();
+            if (!name || !addr) { alert('❌ Lütfen tüm alanları doldurun!'); return; }
+            sites.push({ id: Date.now(), name: name, addr: addr });
+            localStorage.setItem('sites', JSON.stringify(sites));
+            alert('✅ Şantiye eklendi!');
+            showManagerPanel('add');
+        }
+        
+        function exportToExcel() {
+            var csv = 'İşçi Adı,Şantiye,Tarih,Saat,Maliyet (₺)\n';
+            for (var i = 0; i < records.length; i++) {
+                var r = records[i];
+                csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.hours + ',' + r.cost + '\n';
+            }
+            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'serfa-santiye-rapor-' + new Date().toISOString().split('T')[0] + '.csv';
+            link.click();
+            alert('✅ Excel dosyası indirildi!');
+        }
+        
+        function showWorkerLogin() {
+            if (workers.length === 0) { alert('⚠️ Henüz işçi kaydı yok. Lütfen yönetici ile iletişime geçin.'); showHome(); return; }
+            var html = '<div class="container">';
+            html += '<div class="brand">SERFA TEKNİK</div>';
+            html += '<div class="header worker"><h1>👷 İşçi Girişi</h1></div>';
+            html += '<div class="content">';
+            html += '<button class="btn btn-back" onclick="showHome()">← Geri</button>';
+            html += '<div style="padding: 30px 20px; text-align: center;">';
+            html += '<div style="font-size: 50px; margin-bottom: 15px;">👷</div>';
+            html += '<h2 style="margin-bottom: 20px;">İsminizi Seçin</h2>';
+            html += '<div class="form-group"><select id="wselect"><option value="">Seçin...</option>';
+            for (var i = 0; i < workers.length; i++) {
+                html += '<option value="' + workers[i].id + '">' + workers[i].name + '</option>';
+            }
+            html += '</select></div>';
+            html += '<button class="btn btn-success" onclick="loginWorker()">Giriş Yap</button>';
+            html += '</div></div></div>';
+            document.getElementById('app').innerHTML = html;
+        }
+        
+        function loginWorker() {
+            var id = parseInt(document.getElementById('wselect').value);
+            if (!id) { alert('❌ Lütfen bir işçi seçin!'); return; }
+            for (var i = 0; i < workers.length; i++) {
+                if (workers[i].id === id) {
+                    currentWorker = workers[i];
+                    break;
+                }
+            }
+            localStorage.setItem('currentWorker', JSON.stringify(currentWorker));
+            showWorkerPanel();
+        }
+        
+        function showWorkerPanel() {
+            var myRecords = [];
+            for (var i = 0; i < records.length; i++) {
+                if (records[i].wid === currentWorker.id) {
+                    myRecords.push(records[i]);
+                }
+            }
+            
+            var html = '<div class="container">';
+            html += '<div class="brand">SERFA TEKNİK</div>';
+            html += '<div class="header worker"><h1>👷 ' + currentWorker.name + '</h1><p>İşçi Paneli</p></div>';
+            html += '<div class="content">';
+            html += '<button class="btn btn-back" onclick="logoutWorker()">🚪 Çıkış</button>';
+            
+            if (!workStart) {
+                if (!location) {
+                    html += '<div class="alert alert-danger">⚠️ GPS KAPALI! Çalışmaya başlamak için GPS\'i açın ve sayfayı yenileyin.</div>';
+                } else {
+                    html += '<div class="location-badge">✅ GPS Aktif</div>';
+                }
+                html += '<div style="background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 30px; border-radius: 12px; text-align: center; margin: 15px 0;">';
+                html += '<div style="font-size: 50px; margin-bottom: 10px;">🟢</div>';
+                html += '<h2 style="margin-bottom: 5px;">Hazır</h2>';
+                html += '<p style="font-size: 13px; opacity: 0.9;">Çalışmaya başlamak için şantiye seçin</p>';
+                html += '</div>';
+                html += '<div class="form-group"><label>Şantiye Seç *</label><select id="wssite"><option value="">Seçin...</option>';
+                for (var i = 0; i < sites.length; i++) {
+                    html += '<option value="' + sites[i].id + '">' + sites[i].name + '</option>';
+                }
+                html += '</select></div>';
+                html += '<button class="btn btn-success" onclick="startWork()" ' + (!location ? 'disabled' : '') + '>🚀 Çalışmaya Başla</button>';
+                
+                html += '<h3>📋 Yüklediğim Kayıtlar (' + myRecords.length + ')</h3>';
+                if (myRecords.length === 0) {
+                    html += '<div style="text-align: center; padding: 30px; color: #999;">Henüz kayıt yok</div>';
+                } else {
+                    for (var i = myRecords.length - 1; i >= 0; i--) {
+                        var r = myRecords[i];
+                        html += '<div class="card"><b>🏗️ ' + r.sname + '</b><br>';
+                        html += '<small style="color: #666;">📅 ' + r.date + ' • ⏰ ' + r.hours + ' saat</small>';
+                        if (r.photo) {
+                            html += '<div class="photo-preview"><img src="' + r.photo + '" alt="Çalışma"></div>';
+                        }
+                        html += '</div>';
+                    }
+                }
+            } else {
+                html += '<div class="alert alert-success">⚡ Çalışma devam ediyor...</div>';
+                html += '<div style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 30px; border-radius: 12px; text-align: center; margin: 15px 0;">';
+                html += '<div style="font-size: 50px; margin-bottom: 10px;">⚡</div>';
+                html += '<h2>' + workStart.sname + '</h2>';
+                html += '<p style="font-size: 13px; opacity: 0.9; margin-top: 5px;">Başlangıç: ' + new Date(workStart.time).toLocaleTimeString('tr-TR') + '</p>';
+                html += '</div>';
+                html += '<div class="form-group"><label>📸 Çalışma Fotoğrafı (Zorunlu)</label>';
+                html += '<input type="file" id="wphoto" accept="image/*" capture="environment" style="width:100%;padding:12px;border:2px dashed #2ecc71;border-radius:8px;"></div>';
+                html += '<button class="btn btn-danger" onclick="endWork()">⏹️ Çalışmayı Bitir ve Kaydet</button>';
+            }
+            
+            html += '</div></div>';
+            document.getElementById('app').innerHTML = html;
+        }
+        
+        function startWork() {
+            if (!location) { alert('❌ GPS kapalı! Lütfen GPS\'i açın.'); return; }
+            var siteId = parseInt(document.getElementById('wssite').value);
+            if (!siteId) { alert('❌ Lütfen şantiye seçin!'); return; }
+            var site = null;
+            for (var i = 0; i < sites.length; i++) {
+                if (sites[i].id === siteId) {
+                    site = sites[i];
+                    break;
+                }
+            }
+            workStart = { wid: currentWorker.id, wname: currentWorker.name, sid: siteId, sname: site.name, time: Date.now() };
+            localStorage.setItem('workStart', JSON.stringify(workStart));
+            alert('✅ Çalışma başladı!');
+            showWorkerPanel();
+        }
+        
+        function endWork() {
+            if (!location) { alert('⚠️ GPS sinyali yok! Lütfen GPS\'i açın.'); return; }
+            var photo = document.getElementById('wphoto').files[0];
+            if (!photo) { alert('❌ Lütfen çalışma fotoğrafı yükleyin!'); return; }
+            
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var hours = ((Date.now() - workStart.time) / (1000 * 60 * 60)).toFixed(2);
+                var cost = ((parseFloat(currentWorker.wage) / 8) * parseFloat(hours)).toFixed(2);
+                records.push({
+                    id: Date.now(),
+                    wid: workStart.wid,
+                    wname: workStart.wname,
+                    sid: workStart.sid,
+                    sname: workStart.sname,
+                    date: new Date().toISOString().split('T')[0],
+                    hours: hours,
+                    cost: cost,
+                    photo: e.target.result
+                });
+                localStorage.setItem('records', JSON.stringify(records));
+                workStart = null;
+                localStorage.removeItem('workStart');
+                alert('✅ Tamamlandı! ' + hours + ' saat kaydedildi.');
+                showWorkerPanel();
+            };
+            reader.readAsDataURL(photo);
+        }
+        
+        function logoutWorker() {
+            if (workStart && !confirm('⚠️ Çalışma devam ediyor! Çıkarsanız kayıt silinecek. Emin misiniz?')) return;
+            currentWorker = null;
+            workStart = null;
+            localStorage.removeItem('currentWorker');
+            localStorage.removeItem('workStart');
+            showHome();
+        }
+    </script>
 </body>
 </html>
