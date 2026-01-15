@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMG-YqtjVNkkRuMD_4UNhLkCdU03eNLTB31fjDI5rdYd_YeTRTbxMtmepf3TpSFTN4/exec';
+        var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpQws9sY4EAREhfD36qpBaCoBuRF_Z6IqN586LYRxhVPsJCX6TY5LZonMgdif6ijHq/exec';
         var ADMIN_PASSWORD = localStorage.getItem('adminPassword') || '1234';
         
         var APP = {
@@ -530,7 +530,7 @@
                     html += '<option value="' + i + '">' + APP.sites[i].name + '</option>';
                 }
                 html += '</select></div>';
-                html += '<button class="btn btn-success" onclick="alert(\'Butona tıklandı!\'); saveRecord();" ' + (!APP.location ? 'disabled' : '') + '>💾 Kaydet</button>';
+                html += '<button class="btn btn-success" onclick="saveRecord();" ' + (!APP.location ? 'disabled' : '') + '>💾 Kaydet</button>';
             }
             
             html += '<h3>Kayıtlarım (' + myRecs.length + ')</h3>';
@@ -545,17 +545,12 @@
         }
 
         async function saveRecord() {
-            alert('🔍 Kaydetme başladı...');
-            
             if (!APP.location) { 
                 alert('❌ GPS aktif değil! "GPS Yenile" butonuna basın.'); 
                 return; 
             }
             
-            alert('✅ GPS OK: ' + APP.location.lat + ', ' + APP.location.lng);
-            
             var idx = parseInt(document.getElementById('wss').value);
-            alert('📍 Şantiye index: ' + idx);
             
             if (isNaN(idx) || idx < 0) { 
                 alert('❌ Şantiye seçin!'); 
@@ -563,14 +558,10 @@
             }
             
             var site = APP.sites[idx];
-            alert('🏗️ Şantiye: ' + site.name);
-            
             var now = new Date();
             var date = now.toISOString().split('T')[0];
             var time = now.toLocaleTimeString('tr-TR');
             var id = Date.now().toString();
-            
-            alert('💾 Google Sheets\'e gönderiliyor...');
             
             var success = await saveData('records', [[
                 id,
@@ -584,13 +575,11 @@
                 APP.location.lng.toString()
             ]]);
             
-            alert('📡 Sonuç: ' + (success ? 'BAŞARILI' : 'BAŞARISIZ'));
-            
             if (success) {
                 alert('✅ Kayıt başarılı!\n' + site.name + '\n' + date + ' ' + time);
                 showWorkerPanel();
             } else {
-                alert('❌ Kayıt BAŞARISIZ! Google Sheets hatası.');
+                alert('❌ Google Sheets hatası! Lütfen internet bağlantınızı kontrol edin.');
             }
         }
 
