@@ -455,8 +455,15 @@
             
             APP.currentWorker = APP.workers[idx];
             
-            if (APP.currentWorker.password !== pass) {
-                alert('❌ Hatalı PIN kodu!');
+            var correctPass = String(APP.currentWorker.password).trim();
+            var enteredPass = String(pass).trim();
+            
+            console.log('Girilen PIN:', enteredPass);
+            console.log('Doğru PIN:', correctPass);
+            console.log('Eşit mi?', correctPass === enteredPass);
+            
+            if (correctPass !== enteredPass) {
+                alert('❌ Hatalı PIN kodu!\nGirilen: ' + enteredPass + '\nBeklenen: ' + correctPass);
                 return;
             }
             
