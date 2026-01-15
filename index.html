@@ -54,11 +54,9 @@
         .btn-worker { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
         .btn-primary { background: #667eea; }
         .btn-success { background: #2ecc71; }
-        .btn-danger { background: #e74c3c; }
         .btn-excel { background: #217346; }
         .btn-back { background: white; color: #667eea; border: 2px solid #667eea; }
         .btn-refresh { background: #f39c12; }
-        .btn-delete { background: #e74c3c; padding: 8px 12px; font-size: 13px; margin: 5px 0; }
         .form-group { margin-bottom: 18px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
         .form-group input, .form-group select {
@@ -95,7 +93,6 @@
         .alert-danger { background: #f8d7da; color: #721c24; }
         .alert-success { background: #d4edda; color: #155724; }
         .alert-info { background: #d1ecf1; color: #0c5460; }
-        .alert-warning { background: #fff3cd; color: #856404; }
         .location-badge { 
             display: inline-block; 
             padding: 8px 14px; 
@@ -122,10 +119,12 @@
     </div>
 
     <script>
-    var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpQws9sY4EAREhfD36qpBaCoBuRF_Z6IqN586LYRxhVPsJCX6TY5LZonMgdif6ijHq/exec';
-        var ADMIN_PASSWORD = localStorage.getItem('adminPassword') || '1234';
-        
-        var APP = {
+        const CONFIG = {
+            SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxpQws9sY4EAREhfD36qpBaCoBuRF_Z6IqN586LYRxhVPsJCX6TY5LZonMgdif6ijHq/exec',
+            ADMIN_PASSWORD: localStorage.getItem('adminPassword') || '1234'
+        };
+
+        const STATE = {
             workers: [],
             sites: [],
             records: [],
@@ -133,144 +132,97 @@
             location: null
         };
 
-        function init() {
-            getLocation();
-            setInterval(getLocation, 30000);
-            showHome();
-        }
-
-        function getLocation() {
+        // GPS
+        function updateGPS() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    function(pos) { 
-                        APP.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                        console.log('GPS OK:', APP.location);
-                    },
-                    function(err) { 
-                        APP.location = null;
-                        console.log('GPS ERROR:', err);
-                    },
+                    pos => { STATE.location = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                    () => { STATE.location = null; },
                     { enableHighAccuracy: true }
                 );
             }
         }
 
+        // API
+        async function apiGet(sheet) {
+            const url = CONFIG.SCRIPT_URL + '?sheet=' + sheet;
+            const res = await fetch(url);
+            const data = await res.json();
+            return data.data || [];
+        }
+
+        async function apiPost(sheet, values) {
+            const res = await fetch(CONFIG.SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ sheet: sheet, values: values })
+            });
+            const data = await res.json();
+            return data.success === true;
+        }
+
+        // Render
         function render(html) {
             document.getElementById('app').innerHTML = html;
         }
 
-        function showLoading() {
+        function loading() {
             return '<div class="loading"><div class="spinner"></div><p>Yükleniyor...</p></div>';
         }
 
-        async function loadData(sheet) {
-            try {
-                console.log('Yükleniyor:', sheet);
-                var res = await fetch(SCRIPT_URL + '?sheet=' + sheet);
-                var data = await res.json();
-                console.log('Yüklendi:', sheet, data);
-                return data.data || [];
-            } catch (e) {
-                console.error('Yükleme hatası:', sheet, e);
-                return [];
-            }
-        }
-
-        async function saveData(sheet, values) {
-            try {
-                console.log('Kaydediliyor:', sheet, values);
-                var res = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify({ sheet: sheet, values: values })
-                });
-                var result = await res.json();
-                console.log('Kaydedildi:', result);
-                return result.success;
-            } catch (e) {
-                console.error('Kayıt hatası:', e);
-                alert('⚠️ Veri kaydedilemedi. İnternet bağlantınızı kontrol edin.');
-                return false;
-            }
-        }
-
+        // Home
         function showHome() {
-            var html = '<div class="header"><h1>🏗️ Şantiye Takip Sistemi</h1><p>Profesyonel İnşaat Yönetimi</p></div>';
-            html += '<div class="home-content">';
-            html += '<div class="home-icon">🏗️</div>';
-            html += '<h2>Hoş Geldiniz</h2>';
-            html += '<button class="btn btn-manager" onclick="showManagerLogin()">👔 İşveren / Yönetici</button>';
-            html += '<button class="btn btn-worker" onclick="showWorkerLogin()">👷 İşçi</button>';
-            html += '</div>';
-            render(html);
+            render(`
+                <div class="header"><h1>🏗️ Şantiye Takip Sistemi</h1></div>
+                <div class="home-content">
+                    <div class="home-icon">🏗️</div>
+                    <h2>Hoş Geldiniz</h2>
+                    <button class="btn btn-manager" onclick="showManagerLogin()">👔 İşveren</button>
+                    <button class="btn btn-worker" onclick="showWorkerLogin()">👷 İşçi</button>
+                </div>
+            `);
         }
 
+        // Manager Login
         function showManagerLogin() {
-            var html = '<div class="header"><h1>👔 Yönetici Girişi</h1></div>';
-            html += '<div class="content">';
-            html += '<button class="btn btn-back" onclick="showHome()">← Geri</button>';
-            html += '<div style="text-align: center; padding: 40px 20px;">';
-            html += '<div style="font-size: 60px; margin-bottom: 20px;">🔐</div>';
-            html += '<h2>Şifre Girin</h2>';
-            html += '<div class="form-group"><input type="password" id="pass" placeholder="Şifre"></div>';
-            html += '<button class="btn btn-primary" onclick="checkPass()">Giriş</button>';
-            html += '</div></div>';
-            render(html);
+            render(`
+                <div class="header"><h1>👔 Yönetici Girişi</h1></div>
+                <div class="content">
+                    <button class="btn btn-back" onclick="showHome()">← Geri</button>
+                    <div style="text-align: center; padding: 40px 20px;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">🔐</div>
+                        <h2>Şifre Girin</h2>
+                        <div class="form-group"><input type="password" id="pass"></div>
+                        <button class="btn btn-primary" onclick="checkManagerPass()">Giriş</button>
+                    </div>
+                </div>
+            `);
         }
 
-        function checkPass() {
-            if (document.getElementById('pass').value === ADMIN_PASSWORD) {
+        function checkManagerPass() {
+            if (document.getElementById('pass').value === CONFIG.ADMIN_PASSWORD) {
                 showManagerPanel('add');
             } else {
                 alert('❌ Hatalı şifre!');
             }
         }
 
+        // Manager Panel
         async function showManagerPanel(tab) {
-            render('<div class="header"><h1>👔 Yönetici Paneli</h1></div><div class="content">' + showLoading() + '</div>');
+            render('<div class="header"><h1>👔 Yönetici Paneli</h1></div><div class="content">' + loading() + '</div>');
             
-            var workersData = await loadData('workers');
-            var sitesData = await loadData('sites');
-            var recordsData = await loadData('records');
+            const [workersData, sitesData, recordsData] = await Promise.all([
+                apiGet('workers'),
+                apiGet('sites'),
+                apiGet('records')
+            ]);
             
-            APP.workers = [];
-            APP.sites = [];
-            APP.records = [];
+            STATE.workers = workersData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], wage: r[2], password: r[3] }));
+            STATE.sites = sitesData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], addr: r[2] }));
+            STATE.records = recordsData.slice(1).filter(r => r[0]).map(r => ({ 
+                id: r[0], wid: r[1], wname: r[2], sid: r[3], sname: r[4], date: r[5], time: r[6], lat: r[7], lng: r[8] 
+            }));
             
-            for (var i = 1; i < workersData.length; i++) {
-                if (workersData[i] && workersData[i][0]) {
-                    APP.workers.push({ 
-                        id: workersData[i][0], 
-                        name: workersData[i][1] || '', 
-                        wage: workersData[i][2] || '',
-                        password: workersData[i][3] || ''
-                    });
-                }
-            }
-            
-            for (var i = 1; i < sitesData.length; i++) {
-                if (sitesData[i] && sitesData[i][0]) {
-                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1] || '', addr: sitesData[i][2] || '' });
-                }
-            }
-            
-            for (var i = 1; i < recordsData.length; i++) {
-                if (recordsData[i] && recordsData[i][0]) {
-                    APP.records.push({
-                        id: recordsData[i][0],
-                        wid: recordsData[i][1] || '',
-                        wname: recordsData[i][2] || '',
-                        sid: recordsData[i][3] || '',
-                        sname: recordsData[i][4] || '',
-                        date: recordsData[i][5] || '',
-                        time: recordsData[i][6] || '',
-                        lat: recordsData[i][7] || '',
-                        lng: recordsData[i][8] || ''
-                    });
-                }
-            }
-            
-            var html = '<div class="header"><h1>👔 Yönetici Paneli</h1></div>';
+            let html = '<div class="header"><h1>👔 Yönetici Paneli</h1></div>';
             html += '<div class="tabs">';
             html += '<button class="tab ' + (tab === 'add' ? 'active' : '') + '" onclick="showManagerPanel(\'add\')">➕ Ekle</button>';
             html += '<button class="tab ' + (tab === 'list' ? 'active' : '') + '" onclick="showManagerPanel(\'list\')">📋 Liste</button>';
@@ -283,313 +235,238 @@
                 html += '<h3>İşçi Ekle</h3>';
                 html += '<div class="form-group"><label>Ad Soyad</label><input id="wn"></div>';
                 html += '<div class="form-group"><label>Günlük Ücret (₺)</label><input type="number" id="ww"></div>';
-                html += '<div class="form-group"><label>PIN Kodu (4 haneli)</label><input type="text" id="wp" placeholder="örn: 5678" maxlength="4"></div>';
+                html += '<div class="form-group"><label>PIN Kodu (4 haneli)</label><input type="text" id="wp" maxlength="4"></div>';
                 html += '<button class="btn btn-primary" onclick="addWorker()">İşçi Ekle</button><hr style="margin: 30px 0;">';
                 html += '<h3>Şantiye Ekle</h3>';
                 html += '<div class="form-group"><label>Şantiye Adı</label><input id="sn"></div>';
                 html += '<div class="form-group"><label>Adres</label><input id="sa"></div>';
                 html += '<button class="btn btn-primary" onclick="addSite()">Şantiye Ekle</button>';
             } else if (tab === 'list') {
-                html += '<h3>İşçiler (' + APP.workers.length + ')</h3>';
-                if (APP.workers.length === 0) html += '<div class="alert alert-info">Henüz işçi eklenmemiş</div>';
-                for (var i = 0; i < APP.workers.length; i++) {
-                    html += '<div class="card"><b>' + APP.workers[i].name + '</b><br><small>💰 ' + APP.workers[i].wage + '₺/gün • 🔐 PIN: ' + APP.workers[i].password + '</small></div>';
-                }
-                html += '<h3>Şantiyeler (' + APP.sites.length + ')</h3>';
-                if (APP.sites.length === 0) html += '<div class="alert alert-info">Henüz şantiye eklenmemiş</div>';
-                for (var i = 0; i < APP.sites.length; i++) {
-                    html += '<div class="card"><b>' + APP.sites[i].name + '</b><br><small>📍 ' + APP.sites[i].addr + '</small></div>';
-                }
-                html += '<h3>Kayıtlar (' + APP.records.length + ')</h3>';
-                if (APP.records.length === 0) html += '<div class="alert alert-info">Henüz kayıt oluşturulmamış</div>';
-                for (var i = APP.records.length - 1; i >= 0; i--) {
-                    var r = APP.records[i];
-                    html += '<div class="card"><b>' + r.wname + '</b><br>';
-                    html += '<small>🏗️ ' + r.sname + ' • 📅 ' + r.date + ' • ⏰ ' + r.time + '</small><br>';
-                    if (r.lat && r.lng) {
-                        html += '<small>📍 Konum: ' + parseFloat(r.lat).toFixed(5) + ', ' + parseFloat(r.lng).toFixed(5) + '</small>';
-                    }
-                    html += '</div>';
-                }
+                html += '<h3>İşçiler (' + STATE.workers.length + ')</h3>';
+                STATE.workers.forEach(w => {
+                    html += '<div class="card"><b>' + w.name + '</b><br><small>💰 ' + w.wage + '₺/gün • 🔐 PIN: ' + w.password + '</small></div>';
+                });
+                html += '<h3>Şantiyeler (' + STATE.sites.length + ')</h3>';
+                STATE.sites.forEach(s => {
+                    html += '<div class="card"><b>' + s.name + '</b><br><small>📍 ' + s.addr + '</small></div>';
+                });
+                html += '<h3>Kayıtlar (' + STATE.records.length + ')</h3>';
+                STATE.records.slice().reverse().forEach(r => {
+                    html += '<div class="card"><b>' + r.wname + '</b><br><small>🏗️ ' + r.sname + ' • 📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
+                });
             } else if (tab === 'report') {
-                html += '<button class="btn btn-excel" onclick="exportToExcel()">📊 Excel İndir</button>';
+                html += '<button class="btn btn-excel" onclick="exportCSV()">📊 Excel İndir</button>';
                 html += '<div class="stats">';
-                html += '<div class="stat-box"><div class="stat-value">' + APP.records.length + '</div><div class="stat-label">TOPLAM KAYIT</div></div>';
-                html += '<div class="stat-box"><div class="stat-value">' + APP.workers.length + '</div><div class="stat-label">AKTİF İŞÇİ</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + STATE.records.length + '</div><div class="stat-label">TOPLAM KAYIT</div></div>';
+                html += '<div class="stat-box"><div class="stat-value">' + STATE.workers.length + '</div><div class="stat-label">AKTİF İŞÇİ</div></div>';
                 html += '</div>';
-                
-                html += '<h3>İşçi Bazlı Rapor</h3>';
-                var workerStats = {};
-                for (var i = 0; i < APP.records.length; i++) {
-                    var wid = APP.records[i].wid;
-                    if (!workerStats[wid]) {
-                        workerStats[wid] = { name: APP.records[i].wname, count: 0 };
-                    }
-                    workerStats[wid].count++;
-                }
-                for (var wid in workerStats) {
-                    var ws = workerStats[wid];
-                    html += '<div class="card"><b>' + ws.name + '</b><br><small>📝 ' + ws.count + ' kayıt</small></div>';
-                }
             } else if (tab === 'settings') {
                 html += '<div class="settings-box">';
-                html += '<h4>⚙️ Yönetici Şifresi Değiştir</h4>';
-                html += '<div class="form-group"><label>Mevcut Şifre: <b>' + ADMIN_PASSWORD + '</b></label></div>';
+                html += '<h4>⚙️ Yönetici Şifresi</h4>';
+                html += '<div class="form-group"><label>Mevcut: <b>' + CONFIG.ADMIN_PASSWORD + '</b></label></div>';
                 html += '<div class="form-group"><label>Yeni Şifre</label><input type="text" id="newpass"></div>';
-                html += '<button class="btn btn-primary" onclick="changeAdminPassword()">Şifreyi Değiştir</button>';
+                html += '<button class="btn btn-primary" onclick="changePassword()">Değiştir</button>';
                 html += '</div>';
             }
             html += '</div>';
             render(html);
         }
 
-        function changeAdminPassword() {
-            var newPass = document.getElementById('newpass').value.trim();
+        function changePassword() {
+            const newPass = document.getElementById('newpass').value.trim();
             if (!newPass || newPass.length < 4) {
                 alert('❌ Şifre en az 4 karakter olmalı!');
                 return;
             }
-            ADMIN_PASSWORD = newPass;
-            localStorage.setItem('adminPassword', ADMIN_PASSWORD);
-            alert('✅ Yönetici şifresi değiştirildi: ' + ADMIN_PASSWORD);
+            CONFIG.ADMIN_PASSWORD = newPass;
+            localStorage.setItem('adminPassword', newPass);
+            alert('✅ Şifre değiştirildi!');
             showManagerPanel('settings');
         }
 
         async function addWorker() {
-            var n = document.getElementById('wn').value.trim();
-            var w = document.getElementById('ww').value.trim();
-            var p = document.getElementById('wp').value.trim();
-            if (!n || !w || !p) { alert('❌ Tüm alanları doldurun!'); return; }
-            if (p.length !== 4) { alert('❌ PIN kodu 4 haneli olmalı!'); return; }
-            
-            var id = Date.now().toString();
-            var success = await saveData('workers', [[id, n, w, p]]);
-            
-            if (success) {
+            const n = document.getElementById('wn').value.trim();
+            const w = document.getElementById('ww').value.trim();
+            const p = document.getElementById('wp').value.trim();
+            if (!n || !w || !p || p.length !== 4) {
+                alert('❌ Tüm alanları doldurun! PIN 4 haneli olmalı.');
+                return;
+            }
+            const ok = await apiPost('workers', [[Date.now().toString(), n, w, p]]);
+            if (ok) {
                 alert('✅ İşçi eklendi!\nAd: ' + n + '\nPIN: ' + p);
                 showManagerPanel('add');
+            } else {
+                alert('❌ Hata oluştu!');
             }
         }
 
         async function addSite() {
-            var n = document.getElementById('sn').value.trim();
-            var a = document.getElementById('sa').value.trim();
-            if (!n || !a) { alert('❌ Eksik bilgi!'); return; }
-            
-            var id = Date.now().toString();
-            var success = await saveData('sites', [[id, n, a]]);
-            
-            if (success) {
+            const n = document.getElementById('sn').value.trim();
+            const a = document.getElementById('sa').value.trim();
+            if (!n || !a) {
+                alert('❌ Tüm alanları doldurun!');
+                return;
+            }
+            const ok = await apiPost('sites', [[Date.now().toString(), n, a]]);
+            if (ok) {
                 alert('✅ Şantiye eklendi!');
                 showManagerPanel('add');
+            } else {
+                alert('❌ Hata oluştu!');
             }
         }
 
-        function exportToExcel() {
-            var csv = 'İşçi,Şantiye,Tarih,Saat,Enlem,Boylam\n';
-            for (var i = 0; i < APP.records.length; i++) {
-                var r = APP.records[i];
+        function exportCSV() {
+            let csv = 'İşçi,Şantiye,Tarih,Saat,Enlem,Boylam\n';
+            STATE.records.forEach(r => {
                 csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.time + ',' + (r.lat || '') + ',' + (r.lng || '') + '\n';
-            }
-            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            var link = document.createElement('a');
+            });
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'serfa-rapor-' + new Date().toISOString().split('T')[0] + '.csv';
+            link.download = 'serfa-rapor.csv';
             link.click();
-            alert('✅ Excel dosyası indiriliyor!');
         }
 
+        // Worker Login
         async function showWorkerLogin() {
-            render('<div class="header worker"><h1>👷 İşçi Girişi</h1></div><div class="content">' + showLoading() + '</div>');
+            render('<div class="header worker"><h1>👷 İşçi Girişi</h1></div><div class="content">' + loading() + '</div>');
             
-            var workersData = await loadData('workers');
-            APP.workers = [];
+            const workersData = await apiGet('workers');
+            STATE.workers = workersData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], wage: r[2], password: r[3] }));
             
-            for (var i = 1; i < workersData.length; i++) {
-                if (workersData[i] && workersData[i][0]) {
-                    APP.workers.push({ 
-                        id: workersData[i][0], 
-                        name: workersData[i][1] || '', 
-                        wage: workersData[i][2] || '',
-                        password: workersData[i][3] || ''
-                    });
-                }
-            }
-            
-            if (APP.workers.length === 0) { 
-                alert('⚠️ Henüz işçi kaydı yok!'); 
-                showHome(); 
-                return; 
-            }
-            
-            var html = '<div class="header worker"><h1>👷 İşçi Girişi</h1></div>';
+            let html = '<div class="header worker"><h1>👷 İşçi Girişi</h1></div>';
             html += '<div class="content">';
             html += '<button class="btn btn-back" onclick="showHome()">← Geri</button>';
             html += '<div style="text-align: center; padding: 40px 20px;">';
             html += '<div style="font-size: 60px; margin-bottom: 20px;">👷</div>';
             html += '<h2>İsminizi Seçin</h2>';
             html += '<div class="form-group"><select id="ws"><option value="">Seçin...</option>';
-            for (var i = 0; i < APP.workers.length; i++) {
-                html += '<option value="' + i + '">' + APP.workers[i].name + '</option>';
-            }
+            STATE.workers.forEach((w, i) => {
+                html += '<option value="' + i + '">' + w.name + '</option>';
+            });
             html += '</select></div>';
-            html += '<div class="form-group"><label>PIN Kodunuz (4 haneli)</label><input type="password" id="wpass" maxlength="4" placeholder="****"></div>';
+            html += '<div class="form-group"><label>PIN Kodu</label><input type="password" id="wpass" maxlength="4"></div>';
             html += '<button class="btn btn-success" onclick="loginWorker()">Giriş</button>';
             html += '</div></div>';
             render(html);
         }
 
         function loginWorker() {
-            var idx = parseInt(document.getElementById('ws').value);
-            var pass = document.getElementById('wpass').value.trim();
+            const idx = parseInt(document.getElementById('ws').value);
+            const pass = document.getElementById('wpass').value.trim();
             
-            if (isNaN(idx) || idx < 0) { 
-                alert('❌ İşçi seçin!'); 
-                return; 
+            if (isNaN(idx)) {
+                alert('❌ İşçi seçin!');
+                return;
             }
-            
             if (!pass) {
                 alert('❌ PIN kodu girin!');
                 return;
             }
             
-            APP.currentWorker = APP.workers[idx];
+            STATE.currentWorker = STATE.workers[idx];
             
-            var correctPass = String(APP.currentWorker.password).trim();
-            var enteredPass = String(pass).trim();
-            
-            console.log('Girilen PIN:', enteredPass);
-            console.log('Doğru PIN:', correctPass);
-            console.log('Eşit mi?', correctPass === enteredPass);
-            
-            if (correctPass !== enteredPass) {
-                alert('❌ Hatalı PIN kodu!\nGirilen: ' + enteredPass + '\nBeklenen: ' + correctPass);
+            if (String(STATE.currentWorker.password).trim() !== String(pass).trim()) {
+                alert('❌ Hatalı PIN!');
                 return;
             }
             
-            localStorage.setItem('currentWorker', JSON.stringify(APP.currentWorker));
+            localStorage.setItem('currentWorker', JSON.stringify(STATE.currentWorker));
             showWorkerPanel();
         }
 
+        // Worker Panel
         async function showWorkerPanel() {
-            render('<div class="header worker"><h1>👷 ' + APP.currentWorker.name + '</h1></div><div class="content">' + showLoading() + '</div>');
+            render('<div class="header worker"><h1>👷 ' + STATE.currentWorker.name + '</h1></div><div class="content">' + loading() + '</div>');
             
-            var recordsData = await loadData('records');
-            var sitesData = await loadData('sites');
+            const [sitesData, recordsData] = await Promise.all([
+                apiGet('sites'),
+                apiGet('records')
+            ]);
             
-            APP.records = [];
-            APP.sites = [];
+            STATE.sites = sitesData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], addr: r[2] }));
+            STATE.records = recordsData.slice(1).filter(r => r[0] && r[1] === STATE.currentWorker.id).map(r => ({ 
+                id: r[0], sname: r[4], date: r[5], time: r[6]
+            }));
             
-            for (var i = 1; i < recordsData.length; i++) {
-                if (recordsData[i] && recordsData[i][0]) {
-                    APP.records.push({
-                        id: recordsData[i][0],
-                        wid: recordsData[i][1] || '',
-                        wname: recordsData[i][2] || '',
-                        sid: recordsData[i][3] || '',
-                        sname: recordsData[i][4] || '',
-                        date: recordsData[i][5] || '',
-                        time: recordsData[i][6] || '',
-                        lat: recordsData[i][7] || '',
-                        lng: recordsData[i][8] || ''
-                    });
-                }
-            }
-            
-            for (var i = 1; i < sitesData.length; i++) {
-                if (sitesData[i] && sitesData[i][0]) {
-                    APP.sites.push({ id: sitesData[i][0], name: sitesData[i][1] || '', addr: sitesData[i][2] || '' });
-                }
-            }
-            
-            var myRecs = [];
-            for (var i = 0; i < APP.records.length; i++) {
-                if (APP.records[i].wid === APP.currentWorker.id) {
-                    myRecs.push(APP.records[i]);
-                }
-            }
-
-            var html = '<div class="header worker"><h1>👷 ' + APP.currentWorker.name + '</h1></div>';
+            let html = '<div class="header worker"><h1>👷 ' + STATE.currentWorker.name + '</h1></div>';
             html += '<div class="content">';
             html += '<button class="btn btn-back" onclick="logoutWorker()">🚪 Çıkış</button>';
 
-            if (!APP.location) {
+            if (!STATE.location) {
                 html += '<div class="alert alert-danger">⚠️ GPS KAPALI!</div>';
-                html += '<button class="btn btn-refresh" onclick="getLocation(); setTimeout(showWorkerPanel, 1000);">🔄 GPS Yenile</button>';
+                html += '<button class="btn btn-refresh" onclick="updateGPS(); setTimeout(showWorkerPanel, 1000);">🔄 GPS Yenile</button>';
             } else {
                 html += '<div class="location-badge">✅ GPS Aktif</div>';
             }
             
-            html += '<div class="status-card status-ready"><div style="font-size: 60px; margin-bottom: 15px;">🟢</div><h2>Hazır</h2><p>Şantiye seçin ve kaydedin</p></div>';
+            html += '<div class="status-card status-ready"><div style="font-size: 60px;">🟢</div><h2>Hazır</h2><p>Şantiye seçin ve kaydedin</p></div>';
             
-            if (APP.sites.length === 0) {
-                html += '<div class="alert alert-warning">⚠️ Henüz şantiye eklenmemiş!</div>';
-            } else {
-                html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
-                for (var i = 0; i < APP.sites.length; i++) {
-                    html += '<option value="' + i + '">' + APP.sites[i].name + '</option>';
-                }
-                html += '</select></div>';
-                html += '<button class="btn btn-success" onclick="saveRecord();" ' + (!APP.location ? 'disabled' : '') + '>💾 Kaydet</button>';
-            }
+            html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
+            STATE.sites.forEach((s, i) => {
+                html += '<option value="' + i + '">' + s.name + '</option>';
+            });
+            html += '</select></div>';
+            html += '<button class="btn btn-success" onclick="saveWork()" ' + (!STATE.location ? 'disabled' : '') + '>💾 Kaydet</button>';
             
-            html += '<h3>Kayıtlarım (' + myRecs.length + ')</h3>';
-            if (myRecs.length === 0) html += '<div class="alert alert-info">Henüz kayıt yok</div>';
-            for (var i = myRecs.length - 1; i >= 0; i--) {
-                var r = myRecs[i];
+            html += '<h3>Kayıtlarım (' + STATE.records.length + ')</h3>';
+            STATE.records.slice().reverse().forEach(r => {
                 html += '<div class="card"><b>' + r.sname + '</b><br><small>📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
-            }
+            });
 
             html += '</div>';
             render(html);
         }
 
-        async function saveRecord() {
-            if (!APP.location) { 
-                alert('❌ GPS aktif değil! "GPS Yenile" butonuna basın.'); 
-                return; 
+        async function saveWork() {
+            if (!STATE.location) {
+                alert('❌ GPS aktif değil!');
+                return;
             }
             
-            var idx = parseInt(document.getElementById('wss').value);
-            
-            if (isNaN(idx) || idx < 0) { 
-                alert('❌ Şantiye seçin!'); 
-                return; 
+            const idx = parseInt(document.getElementById('wss').value);
+            if (isNaN(idx)) {
+                alert('❌ Şantiye seçin!');
+                return;
             }
             
-            var site = APP.sites[idx];
-            var now = new Date();
-            var date = now.toISOString().split('T')[0];
-            var time = now.toLocaleTimeString('tr-TR');
-            var id = Date.now().toString();
+            const site = STATE.sites[idx];
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+            const time = now.toLocaleTimeString('tr-TR');
             
-            var success = await saveData('records', [[
-                id,
-                APP.currentWorker.id,
-                APP.currentWorker.name,
+            const ok = await apiPost('records', [[
+                Date.now().toString(),
+                STATE.currentWorker.id,
+                STATE.currentWorker.name,
                 site.id,
                 site.name,
                 date,
                 time,
-                APP.location.lat.toString(),
-                APP.location.lng.toString()
+                STATE.location.lat.toString(),
+                STATE.location.lng.toString()
             ]]);
             
-            if (success) {
+            if (ok) {
                 alert('✅ Kayıt başarılı!\n' + site.name + '\n' + date + ' ' + time);
                 showWorkerPanel();
             } else {
-                alert('❌ Google Sheets hatası! Lütfen internet bağlantınızı kontrol edin.');
+                alert('❌ Kayıt başarısız! Tekrar deneyin.');
             }
         }
 
         function logoutWorker() {
-            APP.currentWorker = null;
+            STATE.currentWorker = null;
             localStorage.removeItem('currentWorker');
             showHome();
         }
 
-        init();
+        // Init
+        updateGPS();
+        setInterval(updateGPS, 30000);
+        showHome();
     </script>
 </body>
 </html>
