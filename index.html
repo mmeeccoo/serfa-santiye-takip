@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SERFA TEKNİK</title>
+    <title>SERFA TEKNİK - Şantiye Takip</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -118,9 +118,15 @@
         <div id="app"></div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        // SUPABASE BAĞLANTISI
+        const SUPABASE_URL = 'https://dehztodjllyjjlslxvi.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_KrMtsdsoRjXkwDR5JfrXeQ_sp2_FmqA';
+        
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
         const CONFIG = {
-            SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzWBkU3FXmN9HEizbahNVa6UlGnn_0br0xsC8bn3G5zX_NQKxWNNXRnHi4zD_UN0NIp/exec',
             ADMIN_PASSWORD: localStorage.getItem('adminPassword') || '1234'
         };
 
@@ -132,7 +138,6 @@
             location: null
         };
 
-        // GPS
         function updateGPS() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -143,39 +148,6 @@
             }
         }
 
-        // API
-        async function apiGet(sheet) {
-            const url = CONFIG.SCRIPT_URL + '?sheet=' + sheet;
-            const res = await fetch(url);
-            const data = await res.json();
-            return data.data || [];
-        }
-
-        async function apiPost(sheet, values) {
-            try {
-                const res = await fetch(CONFIG.SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ sheet: sheet, values: values })
-                });
-                
-                if (!res.ok) {
-                    console.error('HTTP Error:', res.status, res.statusText);
-                    return false;
-                }
-                
-                const data = await res.json();
-                console.log('Response:', data);
-                return data.success === true;
-            } catch (err) {
-                console.error('API Error:', err);
-                return false;
-            }
-        }
-
-        // Render
         function render(html) {
             document.getElementById('app').innerHTML = html;
         }
@@ -184,7 +156,6 @@
             return '<div class="loading"><div class="spinner"></div><p>Yükleniyor...</p></div>';
         }
 
-        // Home
         function showHome() {
             render(`
                 <div class="header"><h1>🏗️ Şantiye Takip Sistemi</h1></div>
@@ -197,7 +168,6 @@
             `);
         }
 
-        // Manager Login
         function showManagerLogin() {
             render(`
                 <div class="header"><h1>👔 Yönetici Girişi</h1></div>
@@ -221,21 +191,18 @@
             }
         }
 
-        // Manager Panel
         async function showManagerPanel(tab) {
             render('<div class="header"><h1>👔 Yönetici Paneli</h1></div><div class="content">' + loading() + '</div>');
             
-            const [workersData, sitesData, recordsData] = await Promise.all([
-                apiGet('workers'),
-                apiGet('sites'),
-                apiGet('records')
+            const [workersRes, sitesRes, recordsRes] = await Promise.all([
+                db.from('workers').select('*'),
+                db.from('sites').select('*'),
+                db.from('records').select('*')
             ]);
             
-            STATE.workers = workersData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], wage: r[2], password: r[3] }));
-            STATE.sites = sitesData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], addr: r[2] }));
-            STATE.records = recordsData.slice(1).filter(r => r[0]).map(r => ({ 
-                id: r[0], wid: r[1], wname: r[2], sid: r[3], sname: r[4], date: r[5], time: r[6], lat: r[7], lng: r[8] 
-            }));
+            STATE.workers = workersRes.data || [];
+            STATE.sites = sitesRes.data || [];
+            STATE.records = recordsRes.data || [];
             
             let html = '<div class="header"><h1>👔 Yönetici Paneli</h1></div>';
             html += '<div class="tabs">';
@@ -263,11 +230,11 @@
                 });
                 html += '<h3>Şantiyeler (' + STATE.sites.length + ')</h3>';
                 STATE.sites.forEach(s => {
-                    html += '<div class="card"><b>' + s.name + '</b><br><small>📍 ' + s.addr + '</small></div>';
+                    html += '<div class="card"><b>' + s.name + '</b><br><small>📍 ' + s.address + '</small></div>';
                 });
                 html += '<h3>Kayıtlar (' + STATE.records.length + ')</h3>';
                 STATE.records.slice().reverse().forEach(r => {
-                    html += '<div class="card"><b>' + r.wname + '</b><br><small>🏗️ ' + r.sname + ' • 📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
+                    html += '<div class="card"><b>' + r.worker_name + '</b><br><small>🏗️ ' + r.site_name + ' • 📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
                 });
             } else if (tab === 'report') {
                 html += '<button class="btn btn-excel" onclick="exportCSV()">📊 Excel İndir</button>';
@@ -301,18 +268,18 @@
 
         async function addWorker() {
             const n = document.getElementById('wn').value.trim();
-            const w = document.getElementById('ww').value.trim();
+            const w = parseInt(document.getElementById('ww').value);
             const p = document.getElementById('wp').value.trim();
             if (!n || !w || !p || p.length !== 4) {
                 alert('❌ Tüm alanları doldurun! PIN 4 haneli olmalı.');
                 return;
             }
-            const ok = await apiPost('workers', [[Date.now().toString(), n, w, p]]);
-            if (ok) {
-                alert('✅ İşçi eklendi!\nAd: ' + n + '\nPIN: ' + p);
+            const { error } = await db.from('workers').insert([{ name: n, wage: w, password: p }]);
+            if (!error) {
+                alert('✅ İşçi eklendi!');
                 showManagerPanel('add');
             } else {
-                alert('❌ Hata oluştu!');
+                alert('❌ Hata: ' + error.message);
             }
         }
 
@@ -323,19 +290,19 @@
                 alert('❌ Tüm alanları doldurun!');
                 return;
             }
-            const ok = await apiPost('sites', [[Date.now().toString(), n, a]]);
-            if (ok) {
+            const { error } = await db.from('sites').insert([{ name: n, address: a }]);
+            if (!error) {
                 alert('✅ Şantiye eklendi!');
                 showManagerPanel('add');
             } else {
-                alert('❌ Hata oluştu!');
+                alert('❌ Hata: ' + error.message);
             }
         }
 
         function exportCSV() {
             let csv = 'İşçi,Şantiye,Tarih,Saat,Enlem,Boylam\n';
             STATE.records.forEach(r => {
-                csv += r.wname + ',' + r.sname + ',' + r.date + ',' + r.time + ',' + (r.lat || '') + ',' + (r.lng || '') + '\n';
+                csv += r.worker_name + ',' + r.site_name + ',' + r.date + ',' + r.time + ',' + (r.latitude || '') + ',' + (r.longitude || '') + '\n';
             });
             const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
@@ -344,12 +311,11 @@
             link.click();
         }
 
-        // Worker Login
         async function showWorkerLogin() {
             render('<div class="header worker"><h1>👷 İşçi Girişi</h1></div><div class="content">' + loading() + '</div>');
             
-            const workersData = await apiGet('workers');
-            STATE.workers = workersData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], wage: r[2], password: r[3] }));
+            const { data } = await db.from('workers').select('*');
+            STATE.workers = data || [];
             
             let html = '<div class="header worker"><h1>👷 İşçi Girişi</h1></div>';
             html += '<div class="content">';
@@ -392,19 +358,16 @@
             showWorkerPanel();
         }
 
-        // Worker Panel
         async function showWorkerPanel() {
             render('<div class="header worker"><h1>👷 ' + STATE.currentWorker.name + '</h1></div><div class="content">' + loading() + '</div>');
             
-            const [sitesData, recordsData] = await Promise.all([
-                apiGet('sites'),
-                apiGet('records')
+            const [sitesRes, recordsRes] = await Promise.all([
+                db.from('sites').select('*'),
+                db.from('records').select('*').eq('worker_id', STATE.currentWorker.id)
             ]);
             
-            STATE.sites = sitesData.slice(1).filter(r => r[0]).map(r => ({ id: r[0], name: r[1], addr: r[2] }));
-            STATE.records = recordsData.slice(1).filter(r => r[0] && r[1] === STATE.currentWorker.id).map(r => ({ 
-                id: r[0], sname: r[4], date: r[5], time: r[6]
-            }));
+            STATE.sites = sitesRes.data || [];
+            STATE.records = recordsRes.data || [];
             
             let html = '<div class="header worker"><h1>👷 ' + STATE.currentWorker.name + '</h1></div>';
             html += '<div class="content">';
@@ -428,7 +391,7 @@
             
             html += '<h3>Kayıtlarım (' + STATE.records.length + ')</h3>';
             STATE.records.slice().reverse().forEach(r => {
-                html += '<div class="card"><b>' + r.sname + '</b><br><small>📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
+                html += '<div class="card"><b>' + r.site_name + '</b><br><small>📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
             });
 
             html += '</div>';
@@ -452,23 +415,22 @@
             const date = now.toISOString().split('T')[0];
             const time = now.toLocaleTimeString('tr-TR');
             
-            const ok = await apiPost('records', [[
-                Date.now().toString(),
-                STATE.currentWorker.id,
-                STATE.currentWorker.name,
-                site.id,
-                site.name,
-                date,
-                time,
-                STATE.location.lat.toString(),
-                STATE.location.lng.toString()
-            ]]);
+            const { error } = await db.from('records').insert([{
+                worker_id: STATE.currentWorker.id,
+                worker_name: STATE.currentWorker.name,
+                site_id: site.id,
+                site_name: site.name,
+                date: date,
+                time: time,
+                latitude: STATE.location.lat.toString(),
+                longitude: STATE.location.lng.toString()
+            }]);
             
-            if (ok) {
+            if (!error) {
                 alert('✅ Kayıt başarılı!\n' + site.name + '\n' + date + ' ' + time);
                 showWorkerPanel();
             } else {
-                alert('❌ Kayıt başarısız! Tekrar deneyin.');
+                alert('❌ Hata: ' + error.message);
             }
         }
 
@@ -478,7 +440,6 @@
             showHome();
         }
 
-        // Init
         updateGPS();
         setInterval(updateGPS, 30000);
         showHome();
