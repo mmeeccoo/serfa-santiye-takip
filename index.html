@@ -92,7 +92,6 @@
         .alert { padding: 14px; margin: 15px 0; border-radius: 10px; text-align: center; font-weight: 600; }
         .alert-danger { background: #f8d7da; color: #721c24; }
         .alert-success { background: #d4edda; color: #155724; }
-        .alert-info { background: #d1ecf1; color: #0c5460; }
         .location-badge { 
             display: inline-block; 
             padding: 8px 14px; 
@@ -120,20 +119,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // SUPABASE BAĞLANTISI
         const SUPABASE_URL = 'https://dehztodjllyjjlslxvi.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_KrMtsdsoRjXkwDR5JfrXeQ_sp2_FmqA';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlaHp0b2RpamxseWpqbHNseHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NjY3MzEsImV4cCI6MjA4NDU0MjczMX0.u9f2FWTfzapPgEo9KJMDkx2hofUAOT0Q6vX0bisx7Dk';
         
         const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        const CONFIG = {
-            ADMIN_PASSWORD: localStorage.getItem('adminPassword') || '1234'
-        };
-
+        const CONFIG = { ADMIN_PASSWORD: localStorage.getItem('adminPassword') || '1234' };
         const STATE = {
-            workers: [],
-            sites: [],
-            records: [],
+            workers: [], sites: [], records: [],
             currentWorker: JSON.parse(localStorage.getItem('currentWorker') || 'null'),
             location: null
         };
@@ -148,13 +141,8 @@
             }
         }
 
-        function render(html) {
-            document.getElementById('app').innerHTML = html;
-        }
-
-        function loading() {
-            return '<div class="loading"><div class="spinner"></div><p>Yükleniyor...</p></div>';
-        }
+        function render(html) { document.getElementById('app').innerHTML = html; }
+        function loading() { return '<div class="loading"><div class="spinner"></div><p>Yükleniyor...</p></div>'; }
 
         function showHome() {
             render(`
@@ -184,25 +172,26 @@
         }
 
         function checkManagerPass() {
-            if (document.getElementById('pass').value === CONFIG.ADMIN_PASSWORD) {
-                showManagerPanel('add');
-            } else {
-                alert('❌ Hatalı şifre!');
-            }
+            if (document.getElementById('pass').value === CONFIG.ADMIN_PASSWORD) showManagerPanel('add');
+            else alert('❌ Hatalı şifre!');
         }
 
         async function showManagerPanel(tab) {
             render('<div class="header"><h1>👔 Yönetici Paneli</h1></div><div class="content">' + loading() + '</div>');
             
-            const [workersRes, sitesRes, recordsRes] = await Promise.all([
-                db.from('workers').select('*'),
-                db.from('sites').select('*'),
-                db.from('records').select('*')
-            ]);
-            
-            STATE.workers = workersRes.data || [];
-            STATE.sites = sitesRes.data || [];
-            STATE.records = recordsRes.data || [];
+            try {
+                const [w, s, r] = await Promise.all([
+                    db.from('workers').select('*').order('id'),
+                    db.from('sites').select('*').order('id'),
+                    db.from('records').select('*').order('id', { ascending: false })
+                ]);
+                STATE.workers = w.data || [];
+                STATE.sites = s.data || [];
+                STATE.records = r.data || [];
+            } catch (e) {
+                console.error('Hata:', e);
+                STATE.workers = []; STATE.sites = []; STATE.records = [];
+            }
             
             let html = '<div class="header"><h1>👔 Yönetici Paneli</h1></div>';
             html += '<div class="tabs">';
@@ -233,7 +222,7 @@
                     html += '<div class="card"><b>' + s.name + '</b><br><small>📍 ' + s.address + '</small></div>';
                 });
                 html += '<h3>Kayıtlar (' + STATE.records.length + ')</h3>';
-                STATE.records.slice().reverse().forEach(r => {
+                STATE.records.forEach(r => {
                     html += '<div class="card"><b>' + r.worker_name + '</b><br><small>🏗️ ' + r.site_name + ' • 📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
                 });
             } else if (tab === 'report') {
@@ -256,10 +245,7 @@
 
         function changePassword() {
             const newPass = document.getElementById('newpass').value.trim();
-            if (!newPass || newPass.length < 4) {
-                alert('❌ Şifre en az 4 karakter olmalı!');
-                return;
-            }
+            if (!newPass || newPass.length < 4) { alert('❌ Şifre en az 4 karakter olmalı!'); return; }
             CONFIG.ADMIN_PASSWORD = newPass;
             localStorage.setItem('adminPassword', newPass);
             alert('✅ Şifre değiştirildi!');
@@ -270,33 +256,23 @@
             const n = document.getElementById('wn').value.trim();
             const w = parseInt(document.getElementById('ww').value);
             const p = document.getElementById('wp').value.trim();
-            if (!n || !w || !p || p.length !== 4) {
-                alert('❌ Tüm alanları doldurun! PIN 4 haneli olmalı.');
-                return;
-            }
-            const { error } = await db.from('workers').insert([{ name: n, wage: w, password: p }]);
-            if (!error) {
-                alert('✅ İşçi eklendi!');
-                showManagerPanel('add');
-            } else {
-                alert('❌ Hata: ' + error.message);
-            }
+            if (!n || !w || !p || p.length !== 4) { alert('❌ Tüm alanları doldurun! PIN 4 haneli olmalı.'); return; }
+            try {
+                const { error } = await db.from('workers').insert([{ name: n, wage: w, password: p }]);
+                if (error) { console.error('Hata:', error); alert('❌ Hata: ' + error.message); }
+                else { alert('✅ İşçi eklendi!'); showManagerPanel('add'); }
+            } catch (e) { console.error('Hata:', e); alert('❌ Hata: ' + e.message); }
         }
 
         async function addSite() {
             const n = document.getElementById('sn').value.trim();
             const a = document.getElementById('sa').value.trim();
-            if (!n || !a) {
-                alert('❌ Tüm alanları doldurun!');
-                return;
-            }
-            const { error } = await db.from('sites').insert([{ name: n, address: a }]);
-            if (!error) {
-                alert('✅ Şantiye eklendi!');
-                showManagerPanel('add');
-            } else {
-                alert('❌ Hata: ' + error.message);
-            }
+            if (!n || !a) { alert('❌ Tüm alanları doldurun!'); return; }
+            try {
+                const { error } = await db.from('sites').insert([{ name: n, address: a }]);
+                if (error) { console.error('Hata:', error); alert('❌ Hata: ' + error.message); }
+                else { alert('✅ Şantiye eklendi!'); showManagerPanel('add'); }
+            } catch (e) { console.error('Hata:', e); alert('❌ Hata: ' + e.message); }
         }
 
         function exportCSV() {
@@ -313,9 +289,10 @@
 
         async function showWorkerLogin() {
             render('<div class="header worker"><h1>👷 İşçi Girişi</h1></div><div class="content">' + loading() + '</div>');
-            
-            const { data } = await db.from('workers').select('*');
-            STATE.workers = data || [];
+            try {
+                const { data } = await db.from('workers').select('*').order('name');
+                STATE.workers = data || [];
+            } catch (e) { console.error('Hata:', e); STATE.workers = []; }
             
             let html = '<div class="header worker"><h1>👷 İşçi Girişi</h1></div>';
             html += '<div class="content">';
@@ -337,37 +314,26 @@
         function loginWorker() {
             const idx = parseInt(document.getElementById('ws').value);
             const pass = document.getElementById('wpass').value.trim();
-            
-            if (isNaN(idx)) {
-                alert('❌ İşçi seçin!');
-                return;
-            }
-            if (!pass) {
-                alert('❌ PIN kodu girin!');
-                return;
-            }
-            
+            if (isNaN(idx)) { alert('❌ İşçi seçin!'); return; }
+            if (!pass) { alert('❌ PIN kodu girin!'); return; }
             STATE.currentWorker = STATE.workers[idx];
-            
             if (String(STATE.currentWorker.password).trim() !== String(pass).trim()) {
-                alert('❌ Hatalı PIN!');
-                return;
+                alert('❌ Hatalı PIN!'); return;
             }
-            
             localStorage.setItem('currentWorker', JSON.stringify(STATE.currentWorker));
             showWorkerPanel();
         }
 
         async function showWorkerPanel() {
             render('<div class="header worker"><h1>👷 ' + STATE.currentWorker.name + '</h1></div><div class="content">' + loading() + '</div>');
-            
-            const [sitesRes, recordsRes] = await Promise.all([
-                db.from('sites').select('*'),
-                db.from('records').select('*').eq('worker_id', STATE.currentWorker.id)
-            ]);
-            
-            STATE.sites = sitesRes.data || [];
-            STATE.records = recordsRes.data || [];
+            try {
+                const [s, r] = await Promise.all([
+                    db.from('sites').select('*').order('name'),
+                    db.from('records').select('*').eq('worker_id', STATE.currentWorker.id).order('id', { ascending: false })
+                ]);
+                STATE.sites = s.data || [];
+                STATE.records = r.data || [];
+            } catch (e) { console.error('Hata:', e); STATE.sites = []; STATE.records = []; }
             
             let html = '<div class="header worker"><h1>👷 ' + STATE.currentWorker.name + '</h1></div>';
             html += '<div class="content">';
@@ -381,57 +347,37 @@
             }
             
             html += '<div class="status-card status-ready"><div style="font-size: 60px;">🟢</div><h2>Hazır</h2><p>Şantiye seçin ve kaydedin</p></div>';
-            
             html += '<div class="form-group"><label>Şantiye Seç</label><select id="wss"><option value="">Seçin...</option>';
             STATE.sites.forEach((s, i) => {
                 html += '<option value="' + i + '">' + s.name + '</option>';
             });
             html += '</select></div>';
             html += '<button class="btn btn-success" onclick="saveWork()" ' + (!STATE.location ? 'disabled' : '') + '>💾 Kaydet</button>';
-            
             html += '<h3>Kayıtlarım (' + STATE.records.length + ')</h3>';
-            STATE.records.slice().reverse().forEach(r => {
+            STATE.records.forEach(r => {
                 html += '<div class="card"><b>' + r.site_name + '</b><br><small>📅 ' + r.date + ' • ⏰ ' + r.time + '</small></div>';
             });
-
             html += '</div>';
             render(html);
         }
 
         async function saveWork() {
-            if (!STATE.location) {
-                alert('❌ GPS aktif değil!');
-                return;
-            }
-            
+            if (!STATE.location) { alert('❌ GPS aktif değil!'); return; }
             const idx = parseInt(document.getElementById('wss').value);
-            if (isNaN(idx)) {
-                alert('❌ Şantiye seçin!');
-                return;
-            }
-            
+            if (isNaN(idx)) { alert('❌ Şantiye seçin!'); return; }
             const site = STATE.sites[idx];
             const now = new Date();
             const date = now.toISOString().split('T')[0];
             const time = now.toLocaleTimeString('tr-TR');
-            
-            const { error } = await db.from('records').insert([{
-                worker_id: STATE.currentWorker.id,
-                worker_name: STATE.currentWorker.name,
-                site_id: site.id,
-                site_name: site.name,
-                date: date,
-                time: time,
-                latitude: STATE.location.lat.toString(),
-                longitude: STATE.location.lng.toString()
-            }]);
-            
-            if (!error) {
-                alert('✅ Kayıt başarılı!\n' + site.name + '\n' + date + ' ' + time);
-                showWorkerPanel();
-            } else {
-                alert('❌ Hata: ' + error.message);
-            }
+            try {
+                const { error } = await db.from('records').insert([{
+                    worker_id: STATE.currentWorker.id, worker_name: STATE.currentWorker.name,
+                    site_id: site.id, site_name: site.name, date: date, time: time,
+                    latitude: STATE.location.lat.toString(), longitude: STATE.location.lng.toString()
+                }]);
+                if (error) { console.error('Hata:', error); alert('❌ Hata: ' + error.message); }
+                else { alert('✅ Kayıt başarılı!\n' + site.name + '\n' + date + ' ' + time); showWorkerPanel(); }
+            } catch (e) { console.error('Hata:', e); alert('❌ Hata: ' + e.message); }
         }
 
         function logoutWorker() {
